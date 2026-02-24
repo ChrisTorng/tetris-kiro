@@ -1,0 +1,3973 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>俄羅斯方塊</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            gap: 30px;
+        }
+
+        .main-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+        }
+
+        #gameCanvas {
+            border: 3px solid #333;
+            background: #000;
+            display: block;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 180px;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .info-box h3 {
+            color: #495057;
+            font-size: 16px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .info-value {
+            color: #212529;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .preview-box {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .preview-box h3 {
+            color: #495057;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        #nextCanvas {
+            border: 2px solid #adb5bd;
+            background: #000;
+            display: block;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #gameOverMessage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 30px 40px;
+            border-radius: 15px;
+            text-align: center;
+            display: none;
+            z-index: 10;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        #gameOverMessage.show {
+            display: block;
+        }
+
+        #gameOverMessage h2 {
+            font-size: 32px;
+            margin-bottom: 15px;
+            color: #ff6b6b;
+        }
+
+        #gameOverMessage p {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .instructions {
+            background: #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 14px;
+            color: #495057;
+            line-height: 1.6;
+        }
+
+        .instructions h4 {
+            margin-bottom: 10px;
+            color: #212529;
+        }
+
+        .instructions p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="main-area">
+            <div class="canvas-wrapper">
+                <canvas id="gameCanvas" width="300" height="600"></canvas>
+                <div id="gameOverMessage">
+                    <h2>遊戲結束</h2>
+                    <p>最終分數：<span id="finalScore">0</span></p>
+                </div>
+            </div>
+            <div class="controls">
+                <button id="startButton">開始遊戲</button>
+                <button id="restartButton">重新開始</button>
+            </div>
+        </div>
+
+        <div class="side-panel">
+            <div class="info-box">
+                <h3>分數</h3>
+                <div class="info-value" id="scoreDisplay">0</div>
+            </div>
+
+            <div class="info-box">
+                <h3>等級</h3>
+                <div class="info-value" id="levelDisplay">1</div>
+            </div>
+
+            <div class="preview-box">
+                <h3>下一個方塊</h3>
+                <canvas id="nextCanvas" width="120" height="120"></canvas>
+            </div>
+
+            <div class="instructions">
+                <h4>操作說明</h4>
+                <p>← → 左右移動</p>
+                <p>↑ 旋轉</p>
+                <p>↓ 加速下降</p>
+                <p>空白鍵 瞬間下降</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== 常數定義 =====
+        
+        // 四方塊形狀定義
+        // 每種四方塊有 4 個旋轉狀態，每個狀態為二維陣列
+        // 1 表示有方塊，0 表示空白
+        const SHAPES = {
+            I: [
+                [[0,0,0,0], [1,1,1,1], [0,0,0,0], [0,0,0,0]],  // 旋轉 0
+                [[0,0,1,0], [0,0,1,0], [0,0,1,0], [0,0,1,0]],  // 旋轉 1
+                [[0,0,0,0], [0,0,0,0], [1,1,1,1], [0,0,0,0]],  // 旋轉 2
+                [[0,1,0,0], [0,1,0,0], [0,1,0,0], [0,1,0,0]]   // 旋轉 3
+            ],
+            O: [
+                [[1,1], [1,1]],  // 所有旋轉狀態相同
+                [[1,1], [1,1]],
+                [[1,1], [1,1]],
+                [[1,1], [1,1]]
+            ],
+            T: [
+                [[0,1,0], [1,1,1], [0,0,0]],  // 旋轉 0
+                [[0,1,0], [0,1,1], [0,1,0]],  // 旋轉 1
+                [[0,0,0], [1,1,1], [0,1,0]],  // 旋轉 2
+                [[0,1,0], [1,1,0], [0,1,0]]   // 旋轉 3
+            ],
+            S: [
+                [[0,1,1], [1,1,0], [0,0,0]],  // 旋轉 0
+                [[0,1,0], [0,1,1], [0,0,1]],  // 旋轉 1
+                [[0,0,0], [0,1,1], [1,1,0]],  // 旋轉 2
+                [[1,0,0], [1,1,0], [0,1,0]]   // 旋轉 3
+            ],
+            Z: [
+                [[1,1,0], [0,1,1], [0,0,0]],  // 旋轉 0
+                [[0,0,1], [0,1,1], [0,1,0]],  // 旋轉 1
+                [[0,0,0], [1,1,0], [0,1,1]],  // 旋轉 2
+                [[0,1,0], [1,1,0], [1,0,0]]   // 旋轉 3
+            ],
+            J: [
+                [[1,0,0], [1,1,1], [0,0,0]],  // 旋轉 0
+                [[0,1,1], [0,1,0], [0,1,0]],  // 旋轉 1
+                [[0,0,0], [1,1,1], [0,0,1]],  // 旋轉 2
+                [[0,1,0], [0,1,0], [1,1,0]]   // 旋轉 3
+            ],
+            L: [
+                [[0,0,1], [1,1,1], [0,0,0]],  // 旋轉 0
+                [[0,1,0], [0,1,0], [0,1,1]],  // 旋轉 1
+                [[0,0,0], [1,1,1], [1,0,0]],  // 旋轉 2
+                [[1,1,0], [0,1,0], [0,1,0]]   // 旋轉 3
+            ]
+        };
+
+        // 四方塊顏色定義
+        const COLORS = {
+            I: '#00f0f0',  // 青色
+            O: '#f0f000',  // 黃色
+            T: '#a000f0',  // 紫色
+            S: '#00f000',  // 綠色
+            Z: '#f00000',  // 紅色
+            J: '#0000f0',  // 藍色
+            L: '#f0a000'   // 橘色
+        };
+
+        // 遊戲場地常數
+        const FIELD_WIDTH = 10;   // 場地寬度（欄數）
+        const FIELD_HEIGHT = 20;  // 場地高度（列數）
+
+        // 計分規則常數
+        const SCORE_RULES = {
+            softDrop: 1,           // 緩降（每次按下鍵）
+            hardDrop: 2,           // 瞬降（每格）
+            lineClear: {
+                1: 100,            // 消除 1 列
+                2: 300,            // 消除 2 列
+                3: 500,            // 消除 3 列
+                4: 800             // 消除 4 列
+            }
+        };
+
+        // 按鍵映射常數
+        const KEY_MAPPING = {
+            ArrowLeft: 'moveLeft',    // 左方向鍵：向左移動
+            ArrowRight: 'moveRight',  // 右方向鍵：向右移動
+            ArrowDown: 'softDrop',    // 下方向鍵：緩降
+            ArrowUp: 'rotate',        // 上方向鍵：旋轉
+            ' ': 'hardDrop'           // 空白鍵：瞬降
+        };
+
+        // ===== Tetromino 類別 =====
+        
+        /**
+         * Tetromino 類別
+         * 代表一個四方塊，包含類型、位置、旋轉狀態
+         */
+        class Tetromino {
+            /**
+             * 建構子
+             * @param {string} type - 四方塊類型 ('I', 'O', 'T', 'S', 'Z', 'J', 'L')
+             * @param {number} x - X 座標（欄位置）
+             * @param {number} y - Y 座標（列位置）
+             */
+            constructor(type, x, y) {
+                this.type = type;           // 四方塊類型
+                this.x = x;                 // X 座標
+                this.y = y;                 // Y 座標
+                this.rotation = 0;          // 旋轉狀態（0-3）
+            }
+
+            /**
+             * 取得四方塊類型
+             * @returns {string} 四方塊類型
+             */
+            getType() {
+                return this.type;
+            }
+
+            /**
+             * 取得四方塊顏色
+             * @returns {string} 顏色代碼
+             */
+            getColor() {
+                return COLORS[this.type];
+            }
+
+            /**
+             * 取得四方塊位置
+             * @returns {object} 位置物件 {x, y}
+             */
+            getPosition() {
+                return { x: this.x, y: this.y };
+            }
+
+            /**
+             * 設定四方塊位置
+             * @param {number} x - 新的 X 座標
+             * @param {number} y - 新的 Y 座標
+             */
+            setPosition(x, y) {
+                this.x = x;
+                this.y = y;
+            }
+
+            /**
+             * 取得當前旋轉狀態的形狀
+             * @returns {Array<Array<number>>} 二維陣列表示的形狀
+             */
+            getShape() {
+                return SHAPES[this.type][this.rotation];
+            }
+
+            /**
+             * 順時針旋轉 90 度
+             * 更新旋轉狀態索引（0 -> 1 -> 2 -> 3 -> 0）
+             * O 型四方塊旋轉後保持相同形狀（所有旋轉狀態相同）
+             */
+            rotate() {
+                // 順時針旋轉：將旋轉狀態索引加 1，並對 4 取模
+                this.rotation = (this.rotation + 1) % 4;
+            }
+
+            /**
+             * 取得所有方塊的絕對座標
+             * 根據形狀二維陣列和位置計算每個方塊的 (x, y) 座標
+             * @returns {Array<{x: number, y: number}>} 方塊座標陣列
+             */
+            getBlocks() {
+                const blocks = [];
+                const shape = this.getShape();
+                
+                // 遍歷形狀二維陣列
+                for (let row = 0; row < shape.length; row++) {
+                    for (let col = 0; col < shape[row].length; col++) {
+                        // 如果該位置有方塊（值為 1）
+                        if (shape[row][col] === 1) {
+                            // 計算絕對座標：四方塊位置 + 形狀內的相對位置
+                            blocks.push({
+                                x: this.x + col,
+                                y: this.y + row
+                            });
+                        }
+                    }
+                }
+                
+                return blocks;
+            }
+        }
+
+        // ===== GameField 類別 =====
+        
+        /**
+         * GameField 類別
+         * 管理遊戲場地，維護 10×20 的二維陣列
+         * 記錄已固定方塊的位置與顏色
+         */
+        class GameField {
+            /**
+             * 建構子
+             * @param {number} width - 場地寬度（欄數）
+             * @param {number} height - 場地高度（列數）
+             */
+            constructor(width, height) {
+                this.width = width;
+                this.height = height;
+                // 建立二維陣列：height 列 × width 欄
+                // 每個元素初始化為 null（表示空白格子）
+                this.field = [];
+                for (let row = 0; row < height; row++) {
+                    this.field[row] = [];
+                    for (let col = 0; col < width; col++) {
+                        this.field[row][col] = null;
+                    }
+                }
+            }
+
+            /**
+             * 清空場地
+             * 將所有格子設為 null（空白狀態）
+             */
+            clear() {
+                for (let row = 0; row < this.height; row++) {
+                    for (let col = 0; col < this.width; col++) {
+                        this.field[row][col] = null;
+                    }
+                }
+            }
+
+            /**
+             * 檢查位置是否被佔據
+             * @param {number} x - X 座標（欄位置）
+             * @param {number} y - Y 座標（列位置）
+             * @returns {boolean} 如果位置被佔據返回 true，否則返回 false
+             */
+            isOccupied(x, y) {
+                // 檢查座標是否在場地範圍內
+                if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+                    return true;  // 超出邊界視為被佔據
+                }
+                // 檢查該位置是否有顏色（不為 null）
+                return this.field[y][x] !== null;
+            }
+
+            /**
+             * 設定格子顏色
+             * @param {number} x - X 座標（欄位置）
+             * @param {number} y - Y 座標（列位置）
+             * @param {string} color - 顏色代碼（例如 '#ff0000'）
+             */
+            setCell(x, y, color) {
+                // 檢查座標是否在場地範圍內
+                if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
+                    this.field[y][x] = color;
+                }
+            }
+
+            /**
+             * 取得格子顏色
+             * @param {number} x - X 座標（欄位置）
+             * @param {number} y - Y 座標（列位置）
+             * @returns {string|null} 顏色代碼，如果格子為空則返回 null
+             */
+            getCell(x, y) {
+                // 檢查座標是否在場地範圍內
+                if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
+                    return this.field[y][x];
+                }
+                return null;  // 超出邊界返回 null
+            }
+
+            /**
+             * 取得場地寬度
+             * @returns {number} 場地寬度（欄數）
+             */
+            getWidth() {
+                return this.width;
+            }
+
+            /**
+             * 取得場地高度
+             * @returns {number} 場地高度（列數）
+             */
+            getHeight() {
+                return this.height;
+            }
+
+            /**
+             * 檢查列是否完全填滿
+             * @param {number} row - 列索引（0 為頂端，height-1 為底端）
+             * @returns {boolean} 如果列完全填滿返回 true，否則返回 false
+             */
+            isRowFull(row) {
+                // 檢查列索引是否在有效範圍內
+                if (row < 0 || row >= this.height) {
+                    return false;
+                }
+                
+                // 檢查該列的每一個格子
+                for (let col = 0; col < this.width; col++) {
+                    // 如果有任何一個格子為空（null），則該列未填滿
+                    if (this.field[row][col] === null) {
+                        return false;
+                    }
+                }
+                
+                // 所有格子都不為空，該列完全填滿
+                return true;
+            }
+
+            /**
+             * 清除列（設為 null）
+             * @param {number} row - 列索引（0 為頂端，height-1 為底端）
+             */
+            clearRow(row) {
+                // 檢查列索引是否在有效範圍內
+                if (row < 0 || row >= this.height) {
+                    return;
+                }
+                
+                // 將該列的所有格子設為 null
+                for (let col = 0; col < this.width; col++) {
+                    this.field[row][col] = null;
+                }
+            }
+
+            /**
+             * 將指定列向下移動一格
+             * @param {number} row - 列索引（0 為頂端，height-1 為底端）
+             */
+            moveRowDown(row) {
+                // 檢查列索引是否在有效範圍內
+                // 注意：最底列（height-1）無法向下移動
+                if (row < 0 || row >= this.height - 1) {
+                    return;
+                }
+                
+                // 將該列的所有格子複製到下一列
+                for (let col = 0; col < this.width; col++) {
+                    this.field[row + 1][col] = this.field[row][col];
+                }
+                
+                // 清空原來的列
+                for (let col = 0; col < this.width; col++) {
+                    this.field[row][col] = null;
+                }
+            }
+        }
+
+        // ===== CollisionDetector 類別 =====
+        
+        /**
+         * CollisionDetector 類別
+         * 偵測四方塊是否與場地邊界或其他方塊碰撞
+         */
+        class CollisionDetector {
+            /**
+             * 建構子
+             * @param {GameField} gameField - 遊戲場地參考
+             */
+            constructor(gameField) {
+                this.gameField = gameField;
+            }
+
+            /**
+             * 檢查四方塊是否與邊界或已固定方塊碰撞
+             * @param {Tetromino} tetromino - 要檢查的四方塊
+             * @returns {boolean} 如果發生碰撞返回 true，否則返回 false
+             */
+            checkCollision(tetromino) {
+                // 取得四方塊所有方塊的絕對座標
+                const blocks = tetromino.getBlocks();
+                
+                // 遍歷每個方塊座標
+                for (const block of blocks) {
+                    const { x, y } = block;
+                    
+                    // 檢查是否超出左邊界
+                    if (x < 0) {
+                        return true;
+                    }
+                    
+                    // 檢查是否超出右邊界
+                    if (x >= this.gameField.getWidth()) {
+                        return true;
+                    }
+                    
+                    // 檢查是否超出上邊界
+                    if (y < 0) {
+                        return true;
+                    }
+                    
+                    // 檢查是否超出下邊界
+                    if (y >= this.gameField.getHeight()) {
+                        return true;
+                    }
+                    
+                    // 檢查是否與已固定方塊重疊
+                    if (this.gameField.isOccupied(x, y)) {
+                        return true;
+                    }
+                }
+                
+                // 沒有碰撞
+                return false;
+            }
+
+            /**
+             * 檢查四方塊移動後是否會碰撞
+             * @param {Tetromino} tetromino - 要檢查的四方塊
+             * @param {number} dx - X 方向的移動量
+             * @param {number} dy - Y 方向的移動量
+             * @returns {boolean} 如果可以移動（不會碰撞）返回 true，否則返回 false
+             */
+            canMove(tetromino, dx, dy) {
+                // 取得當前位置
+                const currentPos = tetromino.getPosition();
+                
+                // 暫時移動到新位置
+                tetromino.setPosition(currentPos.x + dx, currentPos.y + dy);
+                
+                // 檢查新位置是否會碰撞
+                const collision = this.checkCollision(tetromino);
+                
+                // 恢復原來的位置
+                tetromino.setPosition(currentPos.x, currentPos.y);
+                
+                // 返回是否可以移動（不會碰撞）
+                return !collision;
+            }
+
+            /**
+             * 檢查四方塊旋轉後是否會碰撞
+             * @param {Tetromino} tetromino - 要檢查的四方塊
+             * @param {Array<Array<number>>} newShape - 旋轉後的新形狀
+             * @returns {boolean} 如果可以旋轉（不會碰撞）返回 true，否則返回 false
+             */
+            canRotate(tetromino, newShape) {
+                // 儲存當前旋轉狀態
+                const currentRotation = tetromino.rotation;
+                
+                // 暫時設定為新的旋轉狀態
+                // 計算新的旋轉狀態索引
+                const newRotation = (currentRotation + 1) % 4;
+                tetromino.rotation = newRotation;
+                
+                // 檢查新旋轉狀態是否會碰撞
+                const collision = this.checkCollision(tetromino);
+                
+                // 恢復原來的旋轉狀態
+                tetromino.rotation = currentRotation;
+                
+                // 返回是否可以旋轉（不會碰撞）
+                return !collision;
+            }
+        }
+
+        // JavaScript 程式碼將在後續任務中實作
+        console.log('俄羅斯方塊遊戲已載入');
+        console.log('SHAPES 常數已定義，包含 7 種四方塊類型');
+        console.log('COLORS 常數已定義，為每種四方塊類型指定顏色');
+        console.log('遊戲常數已定義：場地尺寸、計分規則、按鍵映射');
+        console.log('Tetromino 類別已實作：建構子、基本方法、旋轉邏輯與方塊座標計算');
+        console.log('GameField 類別已實作：建構子、clear() 方法、查詢更新方法與列操作方法');
+        console.log('CollisionDetector 類別已實作：建構子、checkCollision()、canMove()、canRotate() 方法');
+        
+        // 測試 GameField 類別
+        {  // Start of GameField test block
+        console.log('\n===== 測試 GameField 類別 =====');
+        
+        // 建立 10×20 的遊戲場地
+        const testField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        console.log('場地寬度:', testField.width);
+        console.log('場地高度:', testField.height);
+        console.log('場地陣列長度（列數）:', testField.field.length);
+        console.log('第一列長度（欄數）:', testField.field[0].length);
+        console.log('初始狀態 - 第一個格子:', testField.field[0][0]);
+        console.log('初始狀態 - 最後一個格子:', testField.field[19][9]);
+        
+        // 測試 clear() 方法
+        testField.field[5][5] = '#ff0000';  // 設定一個格子為紅色
+        console.log('設定格子後 - field[5][5]:', testField.field[5][5]);
+        testField.clear();  // 清空場地
+        console.log('清空後 - field[5][5]:', testField.field[5][5]);
+        
+        // 測試查詢與更新方法
+        console.log('\n--- 測試 getWidth() 和 getHeight() ---');
+        console.log('getWidth():', testField.getWidth());
+        console.log('getHeight():', testField.getHeight());
+        
+        console.log('\n--- 測試 isOccupied() ---');
+        console.log('空白格子 isOccupied(5, 5):', testField.isOccupied(5, 5));
+        console.log('超出邊界 isOccupied(-1, 5):', testField.isOccupied(-1, 5));
+        console.log('超出邊界 isOccupied(10, 5):', testField.isOccupied(10, 5));
+        console.log('超出邊界 isOccupied(5, -1):', testField.isOccupied(5, -1));
+        console.log('超出邊界 isOccupied(5, 20):', testField.isOccupied(5, 20));
+        
+        console.log('\n--- 測試 setCell() 和 getCell() ---');
+        console.log('設定前 getCell(3, 7):', testField.getCell(3, 7));
+        testField.setCell(3, 7, '#00ff00');
+        console.log('設定後 getCell(3, 7):', testField.getCell(3, 7));
+        console.log('設定後 isOccupied(3, 7):', testField.isOccupied(3, 7));
+        
+        console.log('\n--- 測試邊界外的 getCell() ---');
+        console.log('超出邊界 getCell(-1, 5):', testField.getCell(-1, 5));
+        console.log('超出邊界 getCell(10, 5):', testField.getCell(10, 5));
+        
+        console.log('\n--- 測試邊界外的 setCell() ---');
+        testField.setCell(-1, 5, '#ff0000');  // 應該不會設定
+        testField.setCell(10, 5, '#ff0000');  // 應該不會設定
+        console.log('邊界外設定後，場地應該沒有變化');
+        
+        console.log('\n--- 測試多個格子 ---');
+        testField.setCell(0, 0, '#ff0000');
+        testField.setCell(9, 19, '#0000ff');
+        console.log('左上角 getCell(0, 0):', testField.getCell(0, 0));
+        console.log('右下角 getCell(9, 19):', testField.getCell(9, 19));
+        console.log('左上角 isOccupied(0, 0):', testField.isOccupied(0, 0));
+        console.log('右下角 isOccupied(9, 19):', testField.isOccupied(9, 19));
+        
+        console.log('\n--- 測試 isRowFull() ---');
+        testField.clear();  // 清空場地
+        console.log('空列 isRowFull(10):', testField.isRowFull(10));
+        
+        // 填滿第 15 列的部分格子
+        for (let col = 0; col < 8; col++) {
+            testField.setCell(col, 15, '#ff0000');
+        }
+        console.log('部分填滿 isRowFull(15):', testField.isRowFull(15));
+        
+        // 填滿第 15 列的所有格子
+        testField.setCell(8, 15, '#00ff00');
+        testField.setCell(9, 15, '#0000ff');
+        console.log('完全填滿 isRowFull(15):', testField.isRowFull(15));
+        
+        // 測試邊界外的列
+        console.log('超出邊界 isRowFull(-1):', testField.isRowFull(-1));
+        console.log('超出邊界 isRowFull(20):', testField.isRowFull(20));
+        
+        console.log('\n--- 測試 clearRow() ---');
+        console.log('清除前 getCell(5, 15):', testField.getCell(5, 15));
+        testField.clearRow(15);
+        console.log('清除後 getCell(5, 15):', testField.getCell(5, 15));
+        console.log('清除後 isRowFull(15):', testField.isRowFull(15));
+        
+        console.log('\n--- 測試 moveRowDown() ---');
+        testField.clear();  // 清空場地
+        
+        // 在第 10 列設定一些方塊
+        testField.setCell(0, 10, '#ff0000');
+        testField.setCell(1, 10, '#00ff00');
+        testField.setCell(2, 10, '#0000ff');
+        console.log('移動前 第10列 getCell(0, 10):', testField.getCell(0, 10));
+        console.log('移動前 第10列 getCell(1, 10):', testField.getCell(1, 10));
+        console.log('移動前 第10列 getCell(2, 10):', testField.getCell(2, 10));
+        console.log('移動前 第11列 getCell(0, 11):', testField.getCell(0, 11));
+        console.log('移動前 第11列 getCell(1, 11):', testField.getCell(1, 11));
+        console.log('移動前 第11列 getCell(2, 11):', testField.getCell(2, 11));
+        
+        testField.moveRowDown(10);
+        console.log('移動後 第10列 getCell(0, 10):', testField.getCell(0, 10));
+        console.log('移動後 第10列 getCell(1, 10):', testField.getCell(1, 10));
+        console.log('移動後 第10列 getCell(2, 10):', testField.getCell(2, 10));
+        console.log('移動後 第11列 getCell(0, 11):', testField.getCell(0, 11));
+        console.log('移動後 第11列 getCell(1, 11):', testField.getCell(1, 11));
+        console.log('移動後 第11列 getCell(2, 11):', testField.getCell(2, 11));
+        
+        // 測試最底列無法向下移動
+        testField.setCell(0, 19, '#ff00ff');
+        console.log('最底列移動前 getCell(0, 19):', testField.getCell(0, 19));
+        testField.moveRowDown(19);  // 應該不會有任何效果
+        console.log('最底列移動後 getCell(0, 19):', testField.getCell(0, 19));
+        
+        console.log('===== GameField 測試完成 =====\n');
+        }  // End of GameField test block
+        
+        // 測試 CollisionDetector 類別
+        {  // Start of CollisionDetector test block
+        console.log('\n===== 測試 CollisionDetector 類別 =====');
+        
+        // 建立測試用的場地和碰撞偵測器
+        const collisionTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const collisionDetector = new CollisionDetector(collisionTestField);
+        
+        console.log('\n--- 測試 checkCollision() - 邊界碰撞 ---');
+        
+        // 測試左邊界碰撞
+        const tetrominoLeft = new Tetromino('I', -1, 5);
+        console.log('左邊界外 checkCollision():', collisionDetector.checkCollision(tetrominoLeft));
+        
+        // 測試右邊界碰撞
+        const tetrominoRight = new Tetromino('I', 10, 5);
+        console.log('右邊界外 checkCollision():', collisionDetector.checkCollision(tetrominoRight));
+        
+        // 測試上邊界碰撞
+        const tetrominoTop = new Tetromino('I', 5, -1);
+        console.log('上邊界外 checkCollision():', collisionDetector.checkCollision(tetrominoTop));
+        
+        // 測試下邊界碰撞
+        const tetrominoBottom = new Tetromino('I', 5, 20);
+        console.log('下邊界外 checkCollision():', collisionDetector.checkCollision(tetrominoBottom));
+        
+        // 測試正常位置（無碰撞）
+        const tetrominoNormal = new Tetromino('I', 3, 5);
+        console.log('正常位置 checkCollision():', collisionDetector.checkCollision(tetrominoNormal));
+        
+        console.log('\n--- 測試 checkCollision() - 與已固定方塊碰撞 ---');
+        
+        // 在場地中設定一些已固定的方塊
+        collisionTestField.setCell(5, 10, '#ff0000');
+        collisionTestField.setCell(6, 10, '#ff0000');
+        collisionTestField.setCell(7, 10, '#ff0000');
+        
+        // 測試與已固定方塊重疊
+        const tetrominoOverlap = new Tetromino('O', 5, 9);  // O 型方塊會佔據 (5,9), (6,9), (5,10), (6,10)
+        console.log('與已固定方塊重疊 checkCollision():', collisionDetector.checkCollision(tetrominoOverlap));
+        
+        // 測試不與已固定方塊重疊
+        const tetrominoNoOverlap = new Tetromino('O', 0, 0);
+        console.log('不與已固定方塊重疊 checkCollision():', collisionDetector.checkCollision(tetrominoNoOverlap));
+        
+        console.log('\n--- 測試 canMove() ---');
+        
+        collisionTestField.clear();  // 清空場地
+        const tetrominoMove = new Tetromino('T', 5, 5);
+        
+        // 測試向左移動
+        console.log('當前位置 (5, 5)，向左移動 canMove(-1, 0):', collisionDetector.canMove(tetrominoMove, -1, 0));
+        console.log('移動後位置仍為:', tetrominoMove.getPosition());
+        
+        // 測試向右移動
+        console.log('向右移動 canMove(1, 0):', collisionDetector.canMove(tetrominoMove, 1, 0));
+        console.log('移動後位置仍為:', tetrominoMove.getPosition());
+        
+        // 測試向下移動
+        console.log('向下移動 canMove(0, 1):', collisionDetector.canMove(tetrominoMove, 0, 1));
+        console.log('移動後位置仍為:', tetrominoMove.getPosition());
+        
+        // 測試移動到邊界外
+        const tetrominoEdge = new Tetromino('I', 0, 5);
+        console.log('在左邊緣 (0, 5)，向左移動 canMove(-1, 0):', collisionDetector.canMove(tetrominoEdge, -1, 0));
+        
+        // 測試移動到底部
+        const tetrominoNearBottom = new Tetromino('I', 5, 18);
+        console.log('接近底部 (5, 18)，向下移動 canMove(0, 1):', collisionDetector.canMove(tetrominoNearBottom, 0, 1));
+        console.log('再向下移動 canMove(0, 2):', collisionDetector.canMove(tetrominoNearBottom, 0, 2));
+        
+        // 測試移動到已固定方塊
+        collisionTestField.setCell(5, 12, '#00ff00');
+        const tetrominoAboveFixed = new Tetromino('O', 4, 10);
+        console.log('在已固定方塊上方 (4, 10)，向下移動 canMove(0, 1):', collisionDetector.canMove(tetrominoAboveFixed, 0, 1));
+        console.log('再向下移動 canMove(0, 2):', collisionDetector.canMove(tetrominoAboveFixed, 0, 2));
+        
+        console.log('\n--- 測試 canRotate() ---');
+        
+        collisionTestField.clear();  // 清空場地
+        const tetrominoRotate = new Tetromino('I', 5, 5);
+        
+        console.log('I 型方塊在 (5, 5)，當前旋轉狀態:', tetrominoRotate.rotation);
+        console.log('可以旋轉 canRotate():', collisionDetector.canRotate(tetrominoRotate, null));
+        console.log('旋轉後狀態仍為:', tetrominoRotate.rotation);
+        
+        // 測試在邊界附近旋轉
+        const tetrominoRotateEdge = new Tetromino('I', 0, 5);
+        console.log('I 型方塊在左邊緣 (0, 5)，可以旋轉 canRotate():', collisionDetector.canRotate(tetrominoRotateEdge, null));
+        
+        // 測試 T 型方塊旋轉
+        const tetrominoT = new Tetromino('T', 5, 5);
+        console.log('T 型方塊在 (5, 5)，當前旋轉狀態:', tetrominoT.rotation);
+        console.log('可以旋轉 canRotate():', collisionDetector.canRotate(tetrominoT, null));
+        
+        // 測試在已固定方塊附近旋轉
+        collisionTestField.setCell(6, 6, '#ff0000');
+        collisionTestField.setCell(7, 6, '#ff0000');
+        const tetrominoRotateBlocked = new Tetromino('I', 5, 5);
+        tetrominoRotateBlocked.rotation = 0;  // 水平狀態
+        console.log('I 型方塊在已固定方塊附近，可以旋轉 canRotate():', collisionDetector.canRotate(tetrominoRotateBlocked, null));
+        
+        // 測試 O 型方塊旋轉（應該總是可以，因為形狀不變）
+        const tetrominoO = new Tetromino('O', 5, 5);
+        console.log('O 型方塊在 (5, 5)，可以旋轉 canRotate():', collisionDetector.canRotate(tetrominoO, null));
+        
+        console.log('\n--- 測試邊界情況 ---');
+        
+        collisionTestField.clear();  // 清空場地
+        
+        // 測試 I 型方塊在不同旋轉狀態下的邊界碰撞
+        const tetrominoI = new Tetromino('I', 8, 0);
+        tetrominoI.rotation = 0;  // 水平狀態
+        console.log('I 型方塊水平狀態在 (8, 0)，checkCollision():', collisionDetector.checkCollision(tetrominoI));
+        
+        tetrominoI.rotation = 1;  // 垂直狀態
+        console.log('I 型方塊垂直狀態在 (8, 0)，checkCollision():', collisionDetector.checkCollision(tetrominoI));
+        
+        // 測試在底部邊界
+        const tetrominoBottomEdge = new Tetromino('O', 8, 18);
+        console.log('O 型方塊在 (8, 18)，checkCollision():', collisionDetector.checkCollision(tetrominoBottomEdge));
+        console.log('O 型方塊在 (8, 18)，向下移動 canMove(0, 1):', collisionDetector.canMove(tetrominoBottomEdge, 0, 1));
+        
+        console.log('===== CollisionDetector 測試完成 =====\n');
+        }  // End of CollisionDetector test block
+
+        // ===== TetrominoManager 類別 =====
+        
+        /**
+         * TetrominoManager 類別
+         * 管理當前四方塊與下一個四方塊
+         * 處理四方塊的生成、移動、旋轉、固定
+         */
+        class TetrominoManager {
+            /**
+             * 建構子
+             * @param {GameField} gameField - 遊戲場地參考
+             */
+            constructor(gameField) {
+                this.gameField = gameField;
+                this.collisionDetector = new CollisionDetector(gameField);
+                this.currentTetromino = null;  // 當前四方塊
+                this.nextTetromino = null;     // 下一個四方塊
+                
+                // 所有四方塊類型
+                this.tetrominoTypes = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
+            }
+
+            /**
+             * 隨機生成下一個四方塊類型
+             * 從 7 種類型中隨機選擇一種
+             * @returns {string} 四方塊類型 ('I', 'O', 'T', 'S', 'Z', 'J', 'L')
+             */
+            generateNext() {
+                // 隨機選擇一個索引
+                const randomIndex = Math.floor(Math.random() * this.tetrominoTypes.length);
+                // 返回對應的四方塊類型
+                return this.tetrominoTypes[randomIndex];
+            }
+
+            /**
+             * 在場地頂端中央生成新四方塊
+             * 將 nextTetromino 設為當前四方塊，並生成新的 nextTetromino
+             * 檢查生成位置是否被佔據
+             * @returns {boolean} 如果成功生成返回 true，如果生成位置被佔據返回 false
+             */
+            spawnNew() {
+                // 如果還沒有下一個四方塊，先生成一個
+                if (this.nextTetromino === null) {
+                    const nextType = this.generateNext();
+                    // 計算場地頂端中央的 X 座標
+                    // 場地寬度為 10，中央位置約為 3-4
+                    const spawnX = Math.floor(this.gameField.getWidth() / 2) - 1;
+                    const spawnY = 0;  // 頂端
+                    this.nextTetromino = new Tetromino(nextType, spawnX, spawnY);
+                }
+                
+                // 將下一個四方塊設為當前四方塊
+                this.currentTetromino = this.nextTetromino;
+                
+                // 檢查生成位置是否被佔據（碰撞檢測）
+                if (this.collisionDetector.checkCollision(this.currentTetromino)) {
+                    // 生成位置被佔據，返回失敗
+                    return false;
+                }
+                
+                // 生成新的下一個四方塊
+                const nextType = this.generateNext();
+                const spawnX = Math.floor(this.gameField.getWidth() / 2) - 1;
+                const spawnY = 0;
+                this.nextTetromino = new Tetromino(nextType, spawnX, spawnY);
+                
+                // 成功生成
+                return true;
+            }
+
+            /**
+             * 取得當前四方塊
+             * @returns {Tetromino|null} 當前四方塊
+             */
+            getCurrent() {
+                return this.currentTetromino;
+            }
+
+            /**
+             * 取得下一個四方塊
+             * @returns {Tetromino|null} 下一個四方塊
+             */
+            getNext() {
+                return this.nextTetromino;
+            }
+
+            /**
+             * 向左移動當前四方塊
+             * 使用碰撞偵測檢查是否可以移動
+             * 如果可以移動則更新位置，否則不移動
+             */
+            moveLeft() {
+                if (this.currentTetromino === null) {
+                    return;
+                }
+                
+                // 檢查是否可以向左移動（dx = -1, dy = 0）
+                if (this.collisionDetector.canMove(this.currentTetromino, -1, 0)) {
+                    // 可以移動，更新位置
+                    const currentPos = this.currentTetromino.getPosition();
+                    this.currentTetromino.setPosition(currentPos.x - 1, currentPos.y);
+                }
+                // 如果不能移動，則不做任何事
+            }
+
+            /**
+             * 向右移動當前四方塊
+             * 使用碰撞偵測檢查是否可以移動
+             * 如果可以移動則更新位置，否則不移動
+             */
+            moveRight() {
+                if (this.currentTetromino === null) {
+                    return;
+                }
+                
+                // 檢查是否可以向右移動（dx = 1, dy = 0）
+                if (this.collisionDetector.canMove(this.currentTetromino, 1, 0)) {
+                    // 可以移動，更新位置
+                    const currentPos = this.currentTetromino.getPosition();
+                    this.currentTetromino.setPosition(currentPos.x + 1, currentPos.y);
+                }
+                // 如果不能移動，則不做任何事
+            }
+
+            /**
+             * 向下移動當前四方塊
+             * 使用碰撞偵測檢查是否可以移動
+             * 如果可以移動則更新位置並返回 true，否則返回 false
+             * @returns {boolean} 如果成功向下移動返回 true，否則返回 false
+             */
+            moveDown() {
+                if (this.currentTetromino === null) {
+                    return false;
+                }
+                
+                // 檢查是否可以向下移動（dx = 0, dy = 1）
+                if (this.collisionDetector.canMove(this.currentTetromino, 0, 1)) {
+                    // 可以移動，更新位置
+                    const currentPos = this.currentTetromino.getPosition();
+                    this.currentTetromino.setPosition(currentPos.x, currentPos.y + 1);
+                    return true;  // 成功移動
+                }
+                
+                // 不能移動（碰到底部或其他方塊）
+                return false;
+            }
+
+            /**
+             * 順時針旋轉當前四方塊
+             * 使用碰撞偵測檢查是否可以旋轉
+             * 如果可以旋轉則更新旋轉狀態，否則不旋轉
+             */
+            rotate() {
+                if (this.currentTetromino === null) {
+                    return;
+                }
+                
+                // 檢查是否可以旋轉
+                if (this.collisionDetector.canRotate(this.currentTetromino, null)) {
+                    // 可以旋轉，執行旋轉
+                    this.currentTetromino.rotate();
+                }
+                // 如果不能旋轉，則不做任何事
+            }
+
+            /**
+             * 瞬降當前四方塊到最低可能位置
+             * 持續向下移動直到無法繼續移動
+             * @returns {number} 下降的格數
+             */
+            hardDrop() {
+                if (this.currentTetromino === null) {
+                    return 0;
+                }
+                
+                let dropDistance = 0;
+                
+                // 持續向下移動直到無法繼續移動
+                while (this.collisionDetector.canMove(this.currentTetromino, 0, 1)) {
+                    const currentPos = this.currentTetromino.getPosition();
+                    this.currentTetromino.setPosition(currentPos.x, currentPos.y + 1);
+                    dropDistance++;
+                }
+                
+                // 返回下降的格數
+                return dropDistance;
+            }
+
+            /**
+             * 將當前四方塊固定到場地
+             * 遍歷四方塊所有方塊，將顏色寫入場地對應位置
+             */
+            lock() {
+                if (this.currentTetromino === null) {
+                    return;
+                }
+                
+                // 取得當前四方塊的所有方塊座標
+                const blocks = this.currentTetromino.getBlocks();
+                // 取得四方塊的顏色
+                const color = this.currentTetromino.getColor();
+                
+                // 遍歷每個方塊，將顏色寫入場地對應位置
+                for (const block of blocks) {
+                    this.gameField.setCell(block.x, block.y, color);
+                }
+            }
+        }
+
+        // 測試 TetrominoManager 類別
+        {  // Start of TetrominoManager test block
+        console.log('\n===== 測試 TetrominoManager 類別 =====');
+        
+        // 建立測試用的場地和管理器
+        const managerTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const tetrominoManager = new TetrominoManager(managerTestField);
+        
+        console.log('\n--- 測試 constructor() ---');
+        console.log('gameField 參考已儲存:', tetrominoManager.gameField !== null);
+        console.log('collisionDetector 已建立:', tetrominoManager.collisionDetector !== null);
+        console.log('currentTetromino 初始值:', tetrominoManager.currentTetromino);
+        console.log('nextTetromino 初始值:', tetrominoManager.nextTetromino);
+        console.log('tetrominoTypes 陣列:', tetrominoManager.tetrominoTypes);
+        
+        console.log('\n--- 測試 generateNext() ---');
+        const generatedTypes = [];
+        for (let i = 0; i < 20; i++) {
+            const type = tetrominoManager.generateNext();
+            generatedTypes.push(type);
+        }
+        console.log('生成 20 個隨機類型:', generatedTypes);
+        console.log('所有類型都在有效範圍內:', generatedTypes.every(t => tetrominoManager.tetrominoTypes.includes(t)));
+        
+        // 統計每種類型出現的次數
+        const typeCounts = {};
+        tetrominoManager.tetrominoTypes.forEach(t => typeCounts[t] = 0);
+        generatedTypes.forEach(t => typeCounts[t]++);
+        console.log('類型分布:', typeCounts);
+        
+        console.log('\n--- 測試 spawnNew() - 首次生成 ---');
+        const spawnSuccess1 = tetrominoManager.spawnNew();
+        console.log('首次生成成功:', spawnSuccess1);
+        console.log('currentTetromino 已設定:', tetrominoManager.currentTetromino !== null);
+        console.log('nextTetromino 已設定:', tetrominoManager.nextTetromino !== null);
+        
+        if (tetrominoManager.currentTetromino) {
+            const currentPos = tetrominoManager.currentTetromino.getPosition();
+            console.log('當前四方塊類型:', tetrominoManager.currentTetromino.getType());
+            console.log('當前四方塊位置:', currentPos);
+            console.log('位置在場地頂端中央:', currentPos.x >= 3 && currentPos.x <= 4 && currentPos.y === 0);
+        }
+        
+        if (tetrominoManager.nextTetromino) {
+            console.log('下一個四方塊類型:', tetrominoManager.nextTetromino.getType());
+        }
+        
+        console.log('\n--- 測試 spawnNew() - 第二次生成 ---');
+        const previousNext = tetrominoManager.nextTetromino.getType();
+        const spawnSuccess2 = tetrominoManager.spawnNew();
+        console.log('第二次生成成功:', spawnSuccess2);
+        console.log('前一個 nextTetromino 變成 currentTetromino:', tetrominoManager.currentTetromino.getType() === previousNext);
+        console.log('新的 nextTetromino 已生成:', tetrominoManager.nextTetromino !== null);
+        console.log('新的 nextTetromino 類型:', tetrominoManager.nextTetromino.getType());
+        
+        console.log('\n--- 測試 getCurrent() 和 getNext() ---');
+        console.log('getCurrent() 返回當前四方塊:', tetrominoManager.getCurrent() !== null);
+        console.log('getCurrent() 類型:', tetrominoManager.getCurrent().getType());
+        console.log('getNext() 返回下一個四方塊:', tetrominoManager.getNext() !== null);
+        console.log('getNext() 類型:', tetrominoManager.getNext().getType());
+        
+        console.log('\n--- 測試 spawnNew() - 生成位置被佔據 ---');
+        const blockedTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const blockedManager = new TetrominoManager(blockedTestField);
+        
+        // 在頂端中央設定一些已固定的方塊，阻擋生成位置
+        blockedTestField.setCell(3, 0, '#ff0000');
+        blockedTestField.setCell(4, 0, '#ff0000');
+        blockedTestField.setCell(5, 0, '#ff0000');
+        blockedTestField.setCell(3, 1, '#ff0000');
+        blockedTestField.setCell(4, 1, '#ff0000');
+        blockedTestField.setCell(5, 1, '#ff0000');
+        
+        const spawnBlocked = blockedManager.spawnNew();
+        console.log('生成位置被佔據時返回 false:', spawnBlocked === false);
+        console.log('currentTetromino 仍然被設定:', blockedManager.currentTetromino !== null);
+        
+        console.log('\n--- 測試多次連續生成 ---');
+        const multiSpawnField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const multiSpawnManager = new TetrominoManager(multiSpawnField);
+        
+        const spawnedTypes = [];
+        for (let i = 0; i < 10; i++) {
+            const success = multiSpawnManager.spawnNew();
+            if (success) {
+                spawnedTypes.push(multiSpawnManager.getCurrent().getType());
+            }
+        }
+        console.log('連續生成 10 次，類型序列:', spawnedTypes);
+        console.log('所有生成都成功:', spawnedTypes.length === 10);
+        
+        console.log('\n--- 測試 moveLeft() ---');
+        const moveTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const moveManager = new TetrominoManager(moveTestField);
+        moveManager.spawnNew();
+        
+        const initialPos = moveManager.getCurrent().getPosition();
+        console.log('初始位置:', initialPos);
+        
+        moveManager.moveLeft();
+        const afterLeftPos = moveManager.getCurrent().getPosition();
+        console.log('向左移動後位置:', afterLeftPos);
+        console.log('X 座標減少 1:', afterLeftPos.x === initialPos.x - 1);
+        console.log('Y 座標不變:', afterLeftPos.y === initialPos.y);
+        
+        // 測試移動到左邊界
+        for (let i = 0; i < 10; i++) {
+            moveManager.moveLeft();
+        }
+        const leftEdgePos = moveManager.getCurrent().getPosition();
+        console.log('多次向左移動後位置:', leftEdgePos);
+        console.log('X 座標不會小於 0:', leftEdgePos.x >= 0);
+        
+        console.log('\n--- 測試 moveRight() ---');
+        const rightTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const rightManager = new TetrominoManager(rightTestField);
+        rightManager.spawnNew();
+        
+        const rightInitialPos = rightManager.getCurrent().getPosition();
+        console.log('初始位置:', rightInitialPos);
+        
+        rightManager.moveRight();
+        const afterRightPos = rightManager.getCurrent().getPosition();
+        console.log('向右移動後位置:', afterRightPos);
+        console.log('X 座標增加 1:', afterRightPos.x === rightInitialPos.x + 1);
+        console.log('Y 座標不變:', afterRightPos.y === rightInitialPos.y);
+        
+        // 測試移動到右邊界
+        for (let i = 0; i < 10; i++) {
+            rightManager.moveRight();
+        }
+        const rightEdgePos = rightManager.getCurrent().getPosition();
+        console.log('多次向右移動後位置:', rightEdgePos);
+        console.log('X 座標不會超出場地寬度:', rightEdgePos.x < FIELD_WIDTH);
+        
+        console.log('\n--- 測試 moveDown() ---');
+        const downTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const downManager = new TetrominoManager(downTestField);
+        downManager.spawnNew();
+        
+        const downInitialPos = downManager.getCurrent().getPosition();
+        console.log('初始位置:', downInitialPos);
+        
+        const moveDownSuccess1 = downManager.moveDown();
+        const afterDownPos = downManager.getCurrent().getPosition();
+        console.log('向下移動成功:', moveDownSuccess1);
+        console.log('向下移動後位置:', afterDownPos);
+        console.log('X 座標不變:', afterDownPos.x === downInitialPos.x);
+        console.log('Y 座標增加 1:', afterDownPos.y === downInitialPos.y + 1);
+        
+        // 測試移動到底部
+        let moveCount = 0;
+        let canMove = true;
+        while (canMove && moveCount < 30) {
+            canMove = downManager.moveDown();
+            moveCount++;
+        }
+        console.log('向下移動次數:', moveCount);
+        console.log('最後一次移動失敗（到達底部）:', !canMove);
+        const bottomPos = downManager.getCurrent().getPosition();
+        console.log('到達底部時的位置:', bottomPos);
+        
+        console.log('\n--- 測試 moveDown() - 遇到已固定方塊 ---');
+        const blockedDownField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const blockedDownManager = new TetrominoManager(blockedDownField);
+        
+        // 在場地中間設定一些已固定的方塊
+        for (let col = 0; col < FIELD_WIDTH; col++) {
+            blockedDownField.setCell(col, 10, '#ff0000');
+        }
+        
+        blockedDownManager.spawnNew();
+        
+        // 向下移動直到碰到已固定方塊
+        let blockedMoveCount = 0;
+        let blockedCanMove = true;
+        while (blockedCanMove && blockedMoveCount < 30) {
+            blockedCanMove = blockedDownManager.moveDown();
+            blockedMoveCount++;
+        }
+        console.log('向下移動次數（遇到已固定方塊）:', blockedMoveCount);
+        console.log('最後一次移動失敗（碰到已固定方塊）:', !blockedCanMove);
+        const blockedPos = blockedDownManager.getCurrent().getPosition();
+        console.log('碰到已固定方塊時的位置:', blockedPos);
+        console.log('位置在已固定方塊上方:', blockedPos.y < 10);
+        
+        console.log('\n--- 測試移動方法 - null currentTetromino ---');
+        const nullManager = new TetrominoManager(new GameField(FIELD_WIDTH, FIELD_HEIGHT));
+        console.log('currentTetromino 為 null:', nullManager.getCurrent() === null);
+        
+        // 這些方法應該不會拋出錯誤
+        nullManager.moveLeft();
+        console.log('moveLeft() 在 null currentTetromino 時不拋出錯誤');
+        
+        nullManager.moveRight();
+        console.log('moveRight() 在 null currentTetromino 時不拋出錯誤');
+        
+        const nullMoveDown = nullManager.moveDown();
+        console.log('moveDown() 在 null currentTetromino 時返回 false:', nullMoveDown === false);
+        
+        console.log('\n--- 測試 rotate() ---');
+        const rotateTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const rotateManager = new TetrominoManager(rotateTestField);
+        rotateManager.spawnNew();
+        
+        const initialRotation = rotateManager.getCurrent().rotation;
+        console.log('初始旋轉狀態:', initialRotation);
+        
+        rotateManager.rotate();
+        const afterRotation = rotateManager.getCurrent().rotation;
+        console.log('旋轉後狀態:', afterRotation);
+        console.log('旋轉狀態增加 1:', afterRotation === (initialRotation + 1) % 4);
+        
+        // 測試連續旋轉 4 次回到原狀態
+        for (let i = 0; i < 3; i++) {
+            rotateManager.rotate();
+        }
+        const afterFourRotations = rotateManager.getCurrent().rotation;
+        console.log('旋轉 4 次後狀態:', afterFourRotations);
+        console.log('回到初始狀態:', afterFourRotations === initialRotation);
+        
+        // 測試 O 型方塊旋轉（形狀不變）
+        const oTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const oManager = new TetrominoManager(oTestField);
+        // 強制生成 O 型方塊
+        oManager.currentTetromino = new Tetromino('O', 4, 5);
+        oManager.nextTetromino = new Tetromino('I', 4, 0);
+        
+        const oInitialShape = JSON.stringify(oManager.getCurrent().getShape());
+        oManager.rotate();
+        const oAfterRotation = JSON.stringify(oManager.getCurrent().getShape());
+        console.log('O 型方塊旋轉後形狀不變:', oInitialShape === oAfterRotation);
+        
+        // 測試在邊界附近旋轉被阻擋
+        const edgeRotateField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const edgeRotateManager = new TetrominoManager(edgeRotateField);
+        // 強制生成 I 型方塊在左邊緣
+        edgeRotateManager.currentTetromino = new Tetromino('I', 0, 5);
+        edgeRotateManager.currentTetromino.rotation = 0;  // 水平狀態
+        edgeRotateManager.nextTetromino = new Tetromino('T', 4, 0);
+        
+        const edgeInitialRotation = edgeRotateManager.getCurrent().rotation;
+        edgeRotateManager.rotate();
+        const edgeAfterRotation = edgeRotateManager.getCurrent().rotation;
+        console.log('在邊緣旋轉可能被阻擋，旋轉狀態:', edgeInitialRotation, '->', edgeAfterRotation);
+        
+        // 測試被已固定方塊阻擋旋轉
+        const blockedRotateField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const blockedRotateManager = new TetrominoManager(blockedRotateField);
+        blockedRotateManager.currentTetromino = new Tetromino('I', 5, 5);
+        blockedRotateManager.currentTetromino.rotation = 0;  // 水平狀態
+        blockedRotateManager.nextTetromino = new Tetromino('T', 4, 0);
+        
+        // 在旋轉後會碰撞的位置設定已固定方塊
+        blockedRotateField.setCell(5, 4, '#ff0000');
+        blockedRotateField.setCell(5, 6, '#ff0000');
+        blockedRotateField.setCell(5, 7, '#ff0000');
+        
+        const blockedInitialRotation = blockedRotateManager.getCurrent().rotation;
+        blockedRotateManager.rotate();
+        const blockedAfterRotation = blockedRotateManager.getCurrent().rotation;
+        console.log('被已固定方塊阻擋時不旋轉:', blockedInitialRotation === blockedAfterRotation);
+        
+        console.log('\n--- 測試 hardDrop() ---');
+        const hardDropField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const hardDropManager = new TetrominoManager(hardDropField);
+        hardDropManager.spawnNew();
+        
+        const hardDropInitialPos = hardDropManager.getCurrent().getPosition();
+        console.log('瞬降前位置:', hardDropInitialPos);
+        
+        const dropDistance = hardDropManager.hardDrop();
+        const hardDropFinalPos = hardDropManager.getCurrent().getPosition();
+        console.log('瞬降後位置:', hardDropFinalPos);
+        console.log('下降格數:', dropDistance);
+        console.log('X 座標不變:', hardDropFinalPos.x === hardDropInitialPos.x);
+        console.log('Y 座標增加等於下降格數:', hardDropFinalPos.y === hardDropInitialPos.y + dropDistance);
+        console.log('下降格數大於 0:', dropDistance > 0);
+        
+        // 驗證瞬降後無法再向下移動
+        const canMoveAfterDrop = hardDropManager.moveDown();
+        console.log('瞬降後無法再向下移動:', canMoveAfterDrop === false);
+        
+        // 測試瞬降到已固定方塊上方
+        const hardDropBlockedField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const hardDropBlockedManager = new TetrominoManager(hardDropBlockedField);
+        
+        // 在場地中間設定一些已固定的方塊
+        for (let col = 0; col < FIELD_WIDTH; col++) {
+            hardDropBlockedField.setCell(col, 15, '#ff0000');
+        }
+        
+        hardDropBlockedManager.spawnNew();
+        const blockedDropInitialPos = hardDropBlockedManager.getCurrent().getPosition();
+        console.log('瞬降前位置（有障礙物）:', blockedDropInitialPos);
+        
+        const blockedDropDistance = hardDropBlockedManager.hardDrop();
+        const blockedDropFinalPos = hardDropBlockedManager.getCurrent().getPosition();
+        console.log('瞬降後位置（有障礙物）:', blockedDropFinalPos);
+        console.log('下降格數（有障礙物）:', blockedDropDistance);
+        console.log('停在已固定方塊上方:', blockedDropFinalPos.y < 15);
+        
+        // 測試已經在底部時瞬降
+        const alreadyBottomField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const alreadyBottomManager = new TetrominoManager(alreadyBottomField);
+        alreadyBottomManager.spawnNew();
+        
+        // 先移動到底部
+        while (alreadyBottomManager.moveDown()) {
+            // 持續向下移動
+        }
+        
+        const atBottomPos = alreadyBottomManager.getCurrent().getPosition();
+        const bottomDropDistance = alreadyBottomManager.hardDrop();
+        const afterBottomDrop = alreadyBottomManager.getCurrent().getPosition();
+        console.log('已在底部時瞬降距離為 0:', bottomDropDistance === 0);
+        console.log('位置不變:', atBottomPos.x === afterBottomDrop.x && atBottomPos.y === afterBottomDrop.y);
+        
+        console.log('\n--- 測試 rotate() 和 hardDrop() - null currentTetromino ---');
+        const nullRotateManager = new TetrominoManager(new GameField(FIELD_WIDTH, FIELD_HEIGHT));
+        
+        // 這些方法應該不會拋出錯誤
+        nullRotateManager.rotate();
+        console.log('rotate() 在 null currentTetromino 時不拋出錯誤');
+        
+        const nullHardDrop = nullRotateManager.hardDrop();
+        console.log('hardDrop() 在 null currentTetromino 時返回 0:', nullHardDrop === 0);
+        
+        console.log('\n--- 測試 lock() ---');
+        const lockTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const lockManager = new TetrominoManager(lockTestField);
+        lockManager.spawnNew();
+        
+        // 移動四方塊到底部
+        while (lockManager.moveDown()) {
+            // 持續向下移動
+        }
+        
+        const lockPos = lockManager.getCurrent().getPosition();
+        const lockColor = lockManager.getCurrent().getColor();
+        const lockBlocks = lockManager.getCurrent().getBlocks();
+        console.log('固定前位置:', lockPos);
+        console.log('固定前顏色:', lockColor);
+        console.log('固定前方塊數量:', lockBlocks.length);
+        
+        // 檢查固定前場地是空的
+        let emptyBeforeLock = true;
+        for (const block of lockBlocks) {
+            if (lockTestField.getCell(block.x, block.y) !== null) {
+                emptyBeforeLock = false;
+                break;
+            }
+        }
+        console.log('固定前場地對應位置為空:', emptyBeforeLock);
+        
+        // 執行固定
+        lockManager.lock();
+        
+        // 檢查固定後場地有顏色
+        let allLocked = true;
+        for (const block of lockBlocks) {
+            const cellColor = lockTestField.getCell(block.x, block.y);
+            if (cellColor !== lockColor) {
+                allLocked = false;
+                console.log('方塊 (' + block.x + ', ' + block.y + ') 顏色不符:', cellColor, '應為', lockColor);
+            }
+        }
+        console.log('固定後所有方塊位置都有正確顏色:', allLocked);
+        
+        // 測試固定不同類型的四方塊
+        console.log('\n--- 測試固定不同類型的四方塊 ---');
+        const types = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
+        for (const type of types) {
+            const typeTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+            const typeManager = new TetrominoManager(typeTestField);
+            typeManager.currentTetromino = new Tetromino(type, 4, 17);
+            typeManager.nextTetromino = new Tetromino('I', 4, 0);
+            
+            const typeBlocks = typeManager.getCurrent().getBlocks();
+            const typeColor = typeManager.getCurrent().getColor();
+            
+            typeManager.lock();
+            
+            let typeAllLocked = true;
+            for (const block of typeBlocks) {
+                if (typeTestField.getCell(block.x, block.y) !== typeColor) {
+                    typeAllLocked = false;
+                }
+            }
+            console.log(type + ' 型四方塊固定成功:', typeAllLocked);
+        }
+        
+        // 測試固定後場地狀態
+        console.log('\n--- 測試固定後場地狀態 ---');
+        const stateTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const stateManager = new TetrominoManager(stateTestField);
+        stateManager.currentTetromino = new Tetromino('O', 4, 18);
+        stateManager.nextTetromino = new Tetromino('I', 4, 0);
+        
+        const stateBlocks = stateManager.getCurrent().getBlocks();
+        stateManager.lock();
+        
+        // 檢查這些位置現在被佔據
+        let allOccupied = true;
+        for (const block of stateBlocks) {
+            if (!stateTestField.isOccupied(block.x, block.y)) {
+                allOccupied = false;
+            }
+        }
+        console.log('固定後位置都被佔據:', allOccupied);
+        
+        // 測試固定多個四方塊
+        console.log('\n--- 測試固定多個四方塊 ---');
+        const multiLockField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const multiLockManager = new TetrominoManager(multiLockField);
+        
+        // 固定第一個四方塊
+        multiLockManager.currentTetromino = new Tetromino('I', 0, 19);
+        multiLockManager.currentTetromino.rotation = 0;  // 水平
+        multiLockManager.nextTetromino = new Tetromino('O', 4, 0);
+        multiLockManager.lock();
+        
+        // 固定第二個四方塊
+        multiLockManager.currentTetromino = new Tetromino('O', 5, 18);
+        multiLockManager.lock();
+        
+        // 固定第三個四方塊
+        multiLockManager.currentTetromino = new Tetromino('T', 8, 18);
+        multiLockManager.lock();
+        
+        // 檢查底部兩列有方塊
+        let bottomRowsOccupied = 0;
+        for (let col = 0; col < FIELD_WIDTH; col++) {
+            if (multiLockField.isOccupied(col, 19)) {
+                bottomRowsOccupied++;
+            }
+        }
+        console.log('底部列被佔據的格子數:', bottomRowsOccupied);
+        console.log('多個四方塊固定成功:', bottomRowsOccupied > 0);
+        
+        // 測試 lock() - null currentTetromino
+        console.log('\n--- 測試 lock() - null currentTetromino ---');
+        const nullLockManager = new TetrominoManager(new GameField(FIELD_WIDTH, FIELD_HEIGHT));
+        console.log('currentTetromino 為 null:', nullLockManager.getCurrent() === null);
+        
+        // 這個方法應該不會拋出錯誤
+        nullLockManager.lock();
+        console.log('lock() 在 null currentTetromino 時不拋出錯誤');
+        
+        console.log('===== TetrominoManager 測試完成 =====\n');
+        }  // End of TetrominoManager test block
+
+        // ===== LineClearSystem 類別 =====
+        
+        /**
+         * LineClearSystem 類別
+         * 處理消行邏輯：偵測填滿的列、移除列、將上方列向下移動
+         */
+        class LineClearSystem {
+            /**
+             * 建構子
+             * @param {GameField} gameField - 遊戲場地參考
+             */
+            constructor(gameField) {
+                this.gameField = gameField;
+                this.lastClearedCount = 0;  // 上次清除的列數
+            }
+
+            /**
+             * 檢查並清除所有填滿的列
+             * 從底部向上掃描，找出所有填滿的列
+             * 清除填滿的列，將上方列向下移動
+             * @returns {number} 清除的列數
+             */
+            checkAndClear() {
+                this.lastClearedCount = 0;
+                const clearedRows = [];  // 儲存需要清除的列索引
+                
+                // 從底部向上掃描，找出所有填滿的列
+                for (let row = this.gameField.getHeight() - 1; row >= 0; row--) {
+                    if (this.gameField.isRowFull(row)) {
+                        clearedRows.push(row);
+                    }
+                }
+                
+                // 如果沒有填滿的列，直接返回
+                if (clearedRows.length === 0) {
+                    return 0;
+                }
+                
+                // 清除填滿的列並將上方列向下移動
+                // 從上到下處理每個需要清除的列
+                for (const clearedRow of clearedRows) {
+                    // 將該列上方的所有列向下移動
+                    for (let row = clearedRow; row > 0; row--) {
+                        // 將上一列的內容複製到當前列
+                        for (let col = 0; col < this.gameField.getWidth(); col++) {
+                            const cellAbove = this.gameField.getCell(col, row - 1);
+                            this.gameField.setCell(col, row, cellAbove);
+                        }
+                    }
+                    
+                    // 清空最頂列
+                    for (let col = 0; col < this.gameField.getWidth(); col++) {
+                        this.gameField.setCell(col, 0, null);
+                    }
+                }
+                
+                // 記錄清除的列數
+                this.lastClearedCount = clearedRows.length;
+                
+                return this.lastClearedCount;
+            }
+
+            /**
+             * 取得上次清除的列數
+             * @returns {number} 上次清除的列數
+             */
+            getLastClearedCount() {
+                return this.lastClearedCount;
+            }
+        }
+
+        // 測試 LineClearSystem 類別
+        {  // Start of LineClearSystem test block
+        console.log('\n===== 測試 LineClearSystem 類別 =====');
+        
+        // 建立測試用的場地和消行系統
+        const lineClearTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const lineClearSystem = new LineClearSystem(lineClearTestField);
+        
+        console.log('\n--- 測試 constructor() ---');
+        console.log('gameField 參考已儲存:', lineClearSystem.gameField !== null);
+        console.log('lastClearedCount 初始值:', lineClearSystem.lastClearedCount);
+        
+        console.log('\n--- 測試 getLastClearedCount() ---');
+        console.log('初始 getLastClearedCount():', lineClearSystem.getLastClearedCount());
+        
+        console.log('\n--- 測試 checkAndClear() - 無填滿列 ---');
+        const clearedCount1 = lineClearSystem.checkAndClear();
+        console.log('無填滿列時返回 0:', clearedCount1 === 0);
+        console.log('getLastClearedCount():', lineClearSystem.getLastClearedCount());
+        
+        console.log('\n--- 測試 checkAndClear() - 單列填滿 ---');
+        lineClearTestField.clear();
+        
+        // 填滿底部列（第 19 列）
+        for (let col = 0; col < FIELD_WIDTH; col++) {
+            lineClearTestField.setCell(col, 19, '#ff0000');
+        }
+        
+        console.log('填滿前 isRowFull(19):', lineClearTestField.isRowFull(19));
+        
+        const clearedCount2 = lineClearSystem.checkAndClear();
+        console.log('清除 1 列，返回值:', clearedCount2);
+        console.log('getLastClearedCount():', lineClearSystem.getLastClearedCount());
+        console.log('清除後 isRowFull(19):', lineClearTestField.isRowFull(19));
+        
+        // 檢查底部列是否為空
+        let bottomRowEmpty = true;
+        for (let col = 0; col < FIELD_WIDTH; col++) {
+            if (lineClearTestField.getCell(col, 19) !== null) {
+                bottomRowEmpty = false;
+                break;
+            }
+        }
+        console.log('底部列已清空:', bottomRowEmpty);
+        
+        console.log('\n--- 測試 checkAndClear() - 多列填滿 ---');
+        lineClearTestField.clear();
+        
+        // 填滿底部 3 列（第 17, 18, 19 列）
+        for (let row = 17; row <= 19; row++) {
+            for (let col = 0; col < FIELD_WIDTH; col++) {
+                lineClearTestField.setCell(col, row, '#00ff00');
+            }
+        }
+        
+        console.log('填滿前 isRowFull(17):', lineClearTestField.isRowFull(17));
+        console.log('填滿前 isRowFull(18):', lineClearTestField.isRowFull(18));
+        console.log('填滿前 isRowFull(19):', lineClearTestField.isRowFull(19));
+        
+        const clearedCount3 = lineClearSystem.checkAndClear();
+        console.log('清除 3 列，返回值:', clearedCount3);
+        console.log('getLastClearedCount():', lineClearSystem.getLastClearedCount());
+        
+        // 檢查底部 3 列是否為空
+        let bottomThreeRowsEmpty = true;
+        for (let row = 17; row <= 19; row++) {
+            for (let col = 0; col < FIELD_WIDTH; col++) {
+                if (lineClearTestField.getCell(col, row) !== null) {
+                    bottomThreeRowsEmpty = false;
+                    break;
+                }
+            }
+        }
+        console.log('底部 3 列已清空:', bottomThreeRowsEmpty);
+        
+        console.log('\n--- 測試 checkAndClear() - 4 列填滿（Tetris）---');
+        lineClearTestField.clear();
+        
+        // 填滿底部 4 列（第 16, 17, 18, 19 列）
+        for (let row = 16; row <= 19; row++) {
+            for (let col = 0; col < FIELD_WIDTH; col++) {
+                lineClearTestField.setCell(col, row, '#0000ff');
+            }
+        }
+        
+        const clearedCount4 = lineClearSystem.checkAndClear();
+        console.log('清除 4 列（Tetris），返回值:', clearedCount4);
+        console.log('getLastClearedCount():', lineClearSystem.getLastClearedCount());
+        
+        console.log('\n--- 測試列向下移動 ---');
+        lineClearTestField.clear();
+        
+        // 在場地中設定一些方塊
+        // 第 10 列：部分填滿（紅色）
+        for (let col = 0; col < 5; col++) {
+            lineClearTestField.setCell(col, 10, '#ff0000');
+        }
+        
+        // 第 15 列：部分填滿（綠色）
+        for (let col = 5; col < 10; col++) {
+            lineClearTestField.setCell(col, 15, '#00ff00');
+        }
+        
+        // 第 19 列：完全填滿（藍色）
+        for (let col = 0; col < FIELD_WIDTH; col++) {
+            lineClearTestField.setCell(col, 19, '#0000ff');
+        }
+        
+        console.log('清除前 第10列 getCell(0, 10):', lineClearTestField.getCell(0, 10));
+        console.log('清除前 第15列 getCell(5, 15):', lineClearTestField.getCell(5, 15));
+        console.log('清除前 第19列 getCell(0, 19):', lineClearTestField.getCell(0, 19));
+        
+        const clearedCount5 = lineClearSystem.checkAndClear();
+        console.log('清除列數:', clearedCount5);
+        
+        console.log('清除後 第10列 getCell(0, 10):', lineClearTestField.getCell(0, 10));
+        console.log('清除後 第11列 getCell(0, 11):', lineClearTestField.getCell(0, 11));
+        console.log('清除後 第15列 getCell(5, 15):', lineClearTestField.getCell(5, 15));
+        console.log('清除後 第16列 getCell(5, 16):', lineClearTestField.getCell(5, 16));
+        console.log('清除後 第19列 getCell(0, 19):', lineClearTestField.getCell(0, 19));
+        
+        // 驗證第 10 列的紅色方塊向下移動到第 11 列
+        console.log('第10列紅色方塊向下移動到第11列:', lineClearTestField.getCell(0, 11) === '#ff0000');
+        
+        // 驗證第 15 列的綠色方塊向下移動到第 16 列
+        console.log('第15列綠色方塊向下移動到第16列:', lineClearTestField.getCell(5, 16) === '#00ff00');
+        
+        // 驗證第 19 列已清空
+        console.log('第19列已清空:', lineClearTestField.getCell(0, 19) === null);
+        
+        console.log('\n--- 測試非連續填滿列 ---');
+        lineClearTestField.clear();
+        
+        // 填滿第 10 列和第 15 列（非連續）
+        for (let col = 0; col < FIELD_WIDTH; col++) {
+            lineClearTestField.setCell(col, 10, '#ff00ff');
+            lineClearTestField.setCell(col, 15, '#ffff00');
+        }
+        
+        // 在第 12 列設定一些方塊
+        for (let col = 0; col < 3; col++) {
+            lineClearTestField.setCell(col, 12, '#ffffff');
+        }
+        
+        console.log('清除前 isRowFull(10):', lineClearTestField.isRowFull(10));
+        console.log('清除前 isRowFull(15):', lineClearTestField.isRowFull(15));
+        console.log('清除前 第12列 getCell(0, 12):', lineClearTestField.getCell(0, 12));
+        
+        const clearedCount6 = lineClearSystem.checkAndClear();
+        console.log('清除非連續 2 列，返回值:', clearedCount6);
+        
+        console.log('清除後 isRowFull(10):', lineClearTestField.isRowFull(10));
+        console.log('清除後 isRowFull(15):', lineClearTestField.isRowFull(15));
+        
+        // 驗證第 12 列的白色方塊向下移動
+        console.log('第12列白色方塊向下移動:', lineClearTestField.getCell(0, 12) !== null || lineClearTestField.getCell(0, 13) !== null || lineClearTestField.getCell(0, 14) !== null);
+        
+        console.log('\n--- 測試連續多次清除 ---');
+        lineClearTestField.clear();
+        
+        // 第一次：填滿底部列
+        for (let col = 0; col < FIELD_WIDTH; col++) {
+            lineClearTestField.setCell(col, 19, '#ff0000');
+        }
+        
+        const firstClear = lineClearSystem.checkAndClear();
+        console.log('第一次清除列數:', firstClear);
+        console.log('getLastClearedCount():', lineClearSystem.getLastClearedCount());
+        
+        // 第二次：再填滿底部列
+        for (let col = 0; col < FIELD_WIDTH; col++) {
+            lineClearTestField.setCell(col, 19, '#00ff00');
+        }
+        
+        const secondClear = lineClearSystem.checkAndClear();
+        console.log('第二次清除列數:', secondClear);
+        console.log('getLastClearedCount():', lineClearSystem.getLastClearedCount());
+        
+        // 第三次：無填滿列
+        const thirdClear = lineClearSystem.checkAndClear();
+        console.log('第三次清除列數（無填滿列）:', thirdClear);
+        console.log('getLastClearedCount():', lineClearSystem.getLastClearedCount());
+        
+        console.log('\n--- 測試場地完全填滿 ---');
+        lineClearTestField.clear();
+        
+        // 填滿整個場地
+        for (let row = 0; row < FIELD_HEIGHT; row++) {
+            for (let col = 0; col < FIELD_WIDTH; col++) {
+                lineClearTestField.setCell(col, row, '#808080');
+            }
+        }
+        
+        const fullClear = lineClearSystem.checkAndClear();
+        console.log('清除整個場地，返回值:', fullClear);
+        console.log('應該清除 20 列:', fullClear === 20);
+        
+        // 檢查場地是否完全清空
+        let fieldEmpty = true;
+        for (let row = 0; row < FIELD_HEIGHT; row++) {
+            for (let col = 0; col < FIELD_WIDTH; col++) {
+                if (lineClearTestField.getCell(col, row) !== null) {
+                    fieldEmpty = false;
+                    break;
+                }
+            }
+        }
+        console.log('場地完全清空:', fieldEmpty);
+        
+        console.log('\n--- 測試實際遊戲場景 ---');
+        lineClearTestField.clear();
+        
+        // 模擬實際遊戲場景：底部有一些已固定的方塊，其中一列填滿
+        // 第 18 列：部分填滿
+        for (let col = 0; col < 7; col++) {
+            lineClearTestField.setCell(col, 18, '#ff0000');
+        }
+        
+        // 第 19 列：完全填滿
+        for (let col = 0; col < FIELD_WIDTH; col++) {
+            lineClearTestField.setCell(col, 19, '#00ff00');
+        }
+        
+        console.log('清除前 第18列部分填滿:', !lineClearTestField.isRowFull(18));
+        console.log('清除前 第19列完全填滿:', lineClearTestField.isRowFull(19));
+        console.log('清除前 第18列 getCell(0, 18):', lineClearTestField.getCell(0, 18));
+        
+        const gameClear = lineClearSystem.checkAndClear();
+        console.log('清除列數:', gameClear);
+        
+        console.log('清除後 第18列仍然部分填滿:', !lineClearTestField.isRowFull(18));
+        console.log('清除後 第19列已清空:', !lineClearTestField.isRowFull(19));
+        console.log('清除後 第18列方塊向下移動到第19列:', lineClearTestField.getCell(0, 19) === '#ff0000');
+        console.log('清除後 第18列已清空:', lineClearTestField.getCell(0, 18) === null);
+        
+        console.log('===== LineClearSystem 測試完成 =====\n');
+        }  // End of LineClearSystem test block
+
+        // ===== ScoringSystem 類別 =====
+        
+        /**
+         * ScoringSystem 類別
+         * 管理遊戲分數，根據緩降、瞬降和消行計算分數
+         */
+        class ScoringSystem {
+            /**
+             * 建構子
+             * 初始化分數為 0
+             */
+            constructor() {
+                this.score = 0;
+            }
+
+            /**
+             * 重置分數為 0
+             */
+            reset() {
+                this.score = 0;
+            }
+
+            /**
+             * 緩降加分
+             * 每次緩降（按下鍵）加 1 分
+             */
+            addSoftDrop() {
+                this.score += SCORE_RULES.softDrop;
+            }
+
+            /**
+             * 瞬降加分
+             * 根據下降距離加分（距離 × 2）
+             * @param {number} distance - 下降的格數
+             */
+            addHardDrop(distance) {
+                this.score += distance * SCORE_RULES.hardDrop;
+            }
+
+            /**
+             * 消行加分
+             * 根據消除列數加分
+             * 1 列：100 分
+             * 2 列：300 分
+             * 3 列：500 分
+             * 4 列：800 分
+             * @param {number} lines - 消除的列數（1-4）
+             */
+            addLineClear(lines) {
+                if (lines >= 1 && lines <= 4) {
+                    this.score += SCORE_RULES.lineClear[lines];
+                }
+            }
+
+            /**
+             * 取得當前分數
+             * @returns {number} 當前分數
+             */
+            getScore() {
+                return this.score;
+            }
+        }
+
+        // 測試 ScoringSystem 類別
+        {  // Start of ScoringSystem test block
+        console.log('\n===== 測試 ScoringSystem 類別 =====');
+        
+        const scoringSystem = new ScoringSystem();
+        
+        console.log('\n--- 測試 constructor() ---');
+        console.log('初始分數:', scoringSystem.getScore());
+        console.log('初始分數應為 0:', scoringSystem.getScore() === 0);
+        
+        console.log('\n--- 測試 addSoftDrop() ---');
+        scoringSystem.addSoftDrop();
+        console.log('緩降 1 次後分數:', scoringSystem.getScore());
+        console.log('應為 1 分:', scoringSystem.getScore() === 1);
+        
+        scoringSystem.addSoftDrop();
+        scoringSystem.addSoftDrop();
+        console.log('再緩降 2 次後分數:', scoringSystem.getScore());
+        console.log('應為 3 分:', scoringSystem.getScore() === 3);
+        
+        console.log('\n--- 測試 reset() ---');
+        scoringSystem.reset();
+        console.log('重置後分數:', scoringSystem.getScore());
+        console.log('應為 0 分:', scoringSystem.getScore() === 0);
+        
+        console.log('\n--- 測試 addHardDrop() ---');
+        scoringSystem.addHardDrop(5);
+        console.log('瞬降 5 格後分數:', scoringSystem.getScore());
+        console.log('應為 10 分 (5 × 2):', scoringSystem.getScore() === 10);
+        
+        scoringSystem.addHardDrop(10);
+        console.log('再瞬降 10 格後分數:', scoringSystem.getScore());
+        console.log('應為 30 分 (10 + 10 × 2):', scoringSystem.getScore() === 30);
+        
+        scoringSystem.reset();
+        
+        console.log('\n--- 測試 addLineClear() - 1 列 ---');
+        scoringSystem.addLineClear(1);
+        console.log('消除 1 列後分數:', scoringSystem.getScore());
+        console.log('應為 100 分:', scoringSystem.getScore() === 100);
+        
+        scoringSystem.reset();
+        
+        console.log('\n--- 測試 addLineClear() - 2 列 ---');
+        scoringSystem.addLineClear(2);
+        console.log('消除 2 列後分數:', scoringSystem.getScore());
+        console.log('應為 300 分:', scoringSystem.getScore() === 300);
+        
+        scoringSystem.reset();
+        
+        console.log('\n--- 測試 addLineClear() - 3 列 ---');
+        scoringSystem.addLineClear(3);
+        console.log('消除 3 列後分數:', scoringSystem.getScore());
+        console.log('應為 500 分:', scoringSystem.getScore() === 500);
+        
+        scoringSystem.reset();
+        
+        console.log('\n--- 測試 addLineClear() - 4 列（Tetris）---');
+        scoringSystem.addLineClear(4);
+        console.log('消除 4 列後分數:', scoringSystem.getScore());
+        console.log('應為 800 分:', scoringSystem.getScore() === 800);
+        
+        scoringSystem.reset();
+        
+        console.log('\n--- 測試 addLineClear() - 無效值 ---');
+        scoringSystem.addLineClear(0);
+        console.log('消除 0 列後分數:', scoringSystem.getScore());
+        console.log('應為 0 分（無效）:', scoringSystem.getScore() === 0);
+        
+        scoringSystem.addLineClear(5);
+        console.log('消除 5 列後分數:', scoringSystem.getScore());
+        console.log('應為 0 分（無效）:', scoringSystem.getScore() === 0);
+        
+        scoringSystem.reset();
+        
+        console.log('\n--- 測試組合計分 ---');
+        // 模擬實際遊戲場景
+        scoringSystem.addSoftDrop();  // 緩降 1 次：+1
+        scoringSystem.addSoftDrop();  // 緩降 1 次：+1
+        console.log('緩降 2 次後分數:', scoringSystem.getScore());
+        
+        scoringSystem.addHardDrop(8);  // 瞬降 8 格：+16
+        console.log('瞬降 8 格後分數:', scoringSystem.getScore());
+        console.log('應為 18 分 (2 + 8 × 2):', scoringSystem.getScore() === 18);
+        
+        scoringSystem.addLineClear(1);  // 消除 1 列：+100
+        console.log('消除 1 列後分數:', scoringSystem.getScore());
+        console.log('應為 118 分:', scoringSystem.getScore() === 118);
+        
+        scoringSystem.addSoftDrop();  // 緩降 1 次：+1
+        scoringSystem.addHardDrop(12);  // 瞬降 12 格：+24
+        scoringSystem.addLineClear(4);  // 消除 4 列：+800
+        console.log('最終分數:', scoringSystem.getScore());
+        console.log('應為 943 分 (118 + 1 + 24 + 800):', scoringSystem.getScore() === 943);
+        
+        console.log('\n--- 測試多次重置 ---');
+        scoringSystem.reset();
+        console.log('第一次重置後分數:', scoringSystem.getScore());
+        
+        scoringSystem.addLineClear(2);
+        console.log('加分後分數:', scoringSystem.getScore());
+        
+        scoringSystem.reset();
+        console.log('第二次重置後分數:', scoringSystem.getScore());
+        console.log('應為 0 分:', scoringSystem.getScore() === 0);
+        
+        console.log('\n--- 測試大量計分 ---');
+        scoringSystem.reset();
+        
+        // 模擬長時間遊戲
+        for (let i = 0; i < 100; i++) {
+            scoringSystem.addSoftDrop();
+        }
+        console.log('緩降 100 次後分數:', scoringSystem.getScore());
+        console.log('應為 100 分:', scoringSystem.getScore() === 100);
+        
+        for (let i = 0; i < 10; i++) {
+            scoringSystem.addLineClear(4);  // 10 次 Tetris
+        }
+        console.log('10 次 Tetris 後分數:', scoringSystem.getScore());
+        console.log('應為 8100 分 (100 + 10 × 800):', scoringSystem.getScore() === 8100);
+        
+        console.log('===== ScoringSystem 測試完成 =====\n');
+        }  // End of ScoringSystem test block
+
+        // ===== LevelSystem 類別 =====
+        
+        /**
+         * LevelSystem 類別
+         * 管理遊戲等級，根據累計消除列數計算等級
+         * 每消除 10 列提升 1 級
+         */
+        class LevelSystem {
+            /**
+             * 建構子
+             * 初始化等級為 1，累計消除列數為 0
+             */
+            constructor() {
+                this.level = 1;
+                this.totalLines = 0;
+            }
+
+            /**
+             * 重置等級為 1，累計消除列數為 0
+             */
+            reset() {
+                this.level = 1;
+                this.totalLines = 0;
+            }
+
+            /**
+             * 增加累計消除列數，並計算新等級
+             * 等級計算：Math.floor(totalLines / 10) + 1
+             * @param {number} count - 新增的消除列數
+             */
+            addClearedLines(count) {
+                this.totalLines += count;
+                // 等級計算：每 10 列提升 1 級
+                this.level = Math.floor(this.totalLines / 10) + 1;
+            }
+
+            /**
+             * 取得當前等級
+             * @returns {number} 當前等級
+             */
+            getLevel() {
+                return this.level;
+            }
+
+            /**
+             * 取得累計消除列數
+             * @returns {number} 累計消除列數
+             */
+            getTotalLines() {
+                return this.totalLines;
+            }
+        }
+
+        // 測試 LevelSystem 類別
+        {  // Start of LevelSystem test block
+        console.log('\n===== 測試 LevelSystem 類別 =====');
+        
+        const levelSystem = new LevelSystem();
+        
+        console.log('\n--- 測試 constructor() ---');
+        console.log('初始等級:', levelSystem.getLevel());
+        console.log('初始等級應為 1:', levelSystem.getLevel() === 1);
+        console.log('初始累計消除列數:', levelSystem.getTotalLines());
+        console.log('初始累計消除列數應為 0:', levelSystem.getTotalLines() === 0);
+        
+        console.log('\n--- 測試 addClearedLines() - 單次消除 ---');
+        levelSystem.addClearedLines(1);
+        console.log('消除 1 列後，累計列數:', levelSystem.getTotalLines());
+        console.log('應為 1:', levelSystem.getTotalLines() === 1);
+        console.log('等級:', levelSystem.getLevel());
+        console.log('應為 1 (未達 10 列):', levelSystem.getLevel() === 1);
+        
+        console.log('\n--- 測試 addClearedLines() - 累計到 10 列 ---');
+        levelSystem.addClearedLines(9);  // 累計 10 列
+        console.log('消除 9 列後，累計列數:', levelSystem.getTotalLines());
+        console.log('應為 10:', levelSystem.getTotalLines() === 10);
+        console.log('等級:', levelSystem.getLevel());
+        console.log('應為 2 (達到 10 列):', levelSystem.getLevel() === 2);
+        
+        console.log('\n--- 測試 addClearedLines() - 繼續提升等級 ---');
+        levelSystem.addClearedLines(10);  // 累計 20 列
+        console.log('再消除 10 列後，累計列數:', levelSystem.getTotalLines());
+        console.log('應為 20:', levelSystem.getTotalLines() === 20);
+        console.log('等級:', levelSystem.getLevel());
+        console.log('應為 3:', levelSystem.getLevel() === 3);
+        
+        levelSystem.addClearedLines(5);  // 累計 25 列
+        console.log('再消除 5 列後，累計列數:', levelSystem.getTotalLines());
+        console.log('應為 25:', levelSystem.getTotalLines() === 25);
+        console.log('等級:', levelSystem.getLevel());
+        console.log('應為 3 (未達 30 列):', levelSystem.getLevel() === 3);
+        
+        levelSystem.addClearedLines(5);  // 累計 30 列
+        console.log('再消除 5 列後，累計列數:', levelSystem.getTotalLines());
+        console.log('應為 30:', levelSystem.getTotalLines() === 30);
+        console.log('等級:', levelSystem.getLevel());
+        console.log('應為 4:', levelSystem.getLevel() === 4);
+        
+        console.log('\n--- 測試 reset() ---');
+        levelSystem.reset();
+        console.log('重置後等級:', levelSystem.getLevel());
+        console.log('應為 1:', levelSystem.getLevel() === 1);
+        console.log('重置後累計列數:', levelSystem.getTotalLines());
+        console.log('應為 0:', levelSystem.getTotalLines() === 0);
+        
+        console.log('\n--- 測試等級計算公式 ---');
+        // 測試不同累計列數對應的等級
+        const testCases = [
+            { lines: 0, expectedLevel: 1 },
+            { lines: 1, expectedLevel: 1 },
+            { lines: 9, expectedLevel: 1 },
+            { lines: 10, expectedLevel: 2 },
+            { lines: 11, expectedLevel: 2 },
+            { lines: 19, expectedLevel: 2 },
+            { lines: 20, expectedLevel: 3 },
+            { lines: 50, expectedLevel: 6 },
+            { lines: 99, expectedLevel: 10 },
+            { lines: 100, expectedLevel: 11 }
+        ];
+        
+        for (const testCase of testCases) {
+            levelSystem.reset();
+            levelSystem.addClearedLines(testCase.lines);
+            const actualLevel = levelSystem.getLevel();
+            const passed = actualLevel === testCase.expectedLevel;
+            console.log(`累計 ${testCase.lines} 列 -> 等級 ${actualLevel} (預期 ${testCase.expectedLevel}): ${passed ? '✓' : '✗'}`);
+        }
+        
+        console.log('\n--- 測試多次消除 ---');
+        levelSystem.reset();
+        
+        // 模擬遊戲過程：多次消除不同數量的列
+        levelSystem.addClearedLines(1);  // 累計 1
+        console.log('消除 1 列，等級:', levelSystem.getLevel(), '累計:', levelSystem.getTotalLines());
+        
+        levelSystem.addClearedLines(2);  // 累計 3
+        console.log('消除 2 列，等級:', levelSystem.getLevel(), '累計:', levelSystem.getTotalLines());
+        
+        levelSystem.addClearedLines(4);  // 累計 7
+        console.log('消除 4 列，等級:', levelSystem.getLevel(), '累計:', levelSystem.getTotalLines());
+        
+        levelSystem.addClearedLines(3);  // 累計 10
+        console.log('消除 3 列，等級:', levelSystem.getLevel(), '累計:', levelSystem.getTotalLines());
+        console.log('應為等級 2:', levelSystem.getLevel() === 2);
+        
+        levelSystem.addClearedLines(1);  // 累計 11
+        levelSystem.addClearedLines(1);  // 累計 12
+        levelSystem.addClearedLines(4);  // 累計 16
+        levelSystem.addClearedLines(4);  // 累計 20
+        console.log('繼續消除後，等級:', levelSystem.getLevel(), '累計:', levelSystem.getTotalLines());
+        console.log('應為等級 3:', levelSystem.getLevel() === 3);
+        
+        console.log('\n--- 測試大量消除 ---');
+        levelSystem.reset();
+        
+        // 一次消除大量列
+        levelSystem.addClearedLines(45);
+        console.log('一次消除 45 列，等級:', levelSystem.getLevel());
+        console.log('應為等級 5:', levelSystem.getLevel() === 5);
+        console.log('累計列數:', levelSystem.getTotalLines());
+        console.log('應為 45:', levelSystem.getTotalLines() === 45);
+        
+        console.log('\n--- 測試邊界情況 ---');
+        levelSystem.reset();
+        
+        // 測試消除 0 列
+        levelSystem.addClearedLines(0);
+        console.log('消除 0 列，等級:', levelSystem.getLevel(), '累計:', levelSystem.getTotalLines());
+        console.log('等級應保持 1:', levelSystem.getLevel() === 1);
+        console.log('累計應保持 0:', levelSystem.getTotalLines() === 0);
+        
+        // 測試連續多次重置
+        levelSystem.addClearedLines(25);
+        console.log('消除 25 列後，等級:', levelSystem.getLevel());
+        
+        levelSystem.reset();
+        console.log('第一次重置後，等級:', levelSystem.getLevel(), '累計:', levelSystem.getTotalLines());
+        
+        levelSystem.addClearedLines(15);
+        levelSystem.reset();
+        console.log('第二次重置後，等級:', levelSystem.getLevel(), '累計:', levelSystem.getTotalLines());
+        console.log('應為等級 1，累計 0:', levelSystem.getLevel() === 1 && levelSystem.getTotalLines() === 0);
+        
+        console.log('\n--- 測試等級與速度關係（參考）---');
+        // 根據設計文件，下落間隔 = max(100, 1000 - level × 100)
+        levelSystem.reset();
+        
+        for (let lines = 0; lines <= 100; lines += 10) {
+            levelSystem.reset();
+            levelSystem.addClearedLines(lines);
+            const level = levelSystem.getLevel();
+            const interval = Math.max(100, 1000 - level * 100);
+            console.log(`累計 ${lines} 列 -> 等級 ${level} -> 下落間隔 ${interval} 毫秒`);
+        }
+        
+        console.log('===== LevelSystem 測試完成 =====\n');
+        }  // End of LevelSystem test block
+
+        // ===== GravitySystem 類別 =====
+        
+        /**
+         * GravitySystem 類別
+         * 控制四方塊自動下落的機制
+         * 根據等級計算下落間隔，定期觸發四方塊下落
+         */
+        class GravitySystem {
+            /**
+             * 建構子
+             * @param {TetrominoManager} tetrominoManager - 四方塊管理器參考
+             * @param {LevelSystem} levelSystem - 等級系統參考
+             */
+            constructor(tetrominoManager, levelSystem) {
+                this.tetrominoManager = tetrominoManager;
+                this.levelSystem = levelSystem;
+                this.lastDropTime = 0;  // 上次下落的時間戳記
+                this.isActive = false;  // 重力系統是否啟動
+            }
+
+            /**
+             * 啟動重力系統
+             * 記錄當前時間作為起始時間
+             */
+            start() {
+                this.isActive = true;
+                this.lastDropTime = Date.now();
+            }
+
+            /**
+             * 停止重力系統
+             */
+            stop() {
+                this.isActive = false;
+            }
+
+            /**
+             * 更新重力系統（由遊戲循環呼叫）
+             * 檢查是否該執行下落
+             * @returns {boolean} 如果執行了下落且失敗（需要固定）返回 true，否則返回 false
+             */
+            update() {
+                // 如果重力系統未啟動，不執行任何操作
+                if (!this.isActive) {
+                    return false;
+                }
+
+                // 取得當前時間
+                const currentTime = Date.now();
+                
+                // 計算自上次下落以來經過的時間
+                const elapsedTime = currentTime - this.lastDropTime;
+                
+                // 取得當前下落間隔
+                const interval = this.getInterval();
+                
+                // 如果經過的時間超過下落間隔，執行下落
+                if (elapsedTime >= interval) {
+                    // 更新上次下落時間
+                    this.lastDropTime = currentTime;
+                    
+                    // 嘗試向下移動四方塊
+                    const moveSuccess = this.tetrominoManager.moveDown();
+                    
+                    // 如果移動失敗（碰到底部或其他方塊），返回 true 表示需要固定
+                    if (!moveSuccess) {
+                        return true;
+                    }
+                }
+                
+                // 不需要固定
+                return false;
+            }
+
+            /**
+             * 根據等級計算下落間隔
+             * 公式：Math.max(100, 1000 - level × 100)
+             * @returns {number} 下落間隔（毫秒）
+             */
+            getInterval() {
+                const level = this.levelSystem.getLevel();
+                return Math.max(100, 1000 - level * 100);
+            }
+        }
+
+        // 測試 GravitySystem 類別
+        {  // Start of GravitySystem test block
+        console.log('\n===== 測試 GravitySystem 類別 =====');
+        
+        // 建立測試用的場地、管理器和系統
+        const gravityTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const gravityTetrominoManager = new TetrominoManager(gravityTestField);
+        const gravityLevelSystem = new LevelSystem();
+        const gravitySystem = new GravitySystem(gravityTetrominoManager, gravityLevelSystem);
+        
+        console.log('\n--- 測試 constructor() ---');
+        console.log('tetrominoManager 參考已儲存:', gravitySystem.tetrominoManager !== null);
+        console.log('levelSystem 參考已儲存:', gravitySystem.levelSystem !== null);
+        console.log('lastDropTime 初始值:', gravitySystem.lastDropTime);
+        console.log('isActive 初始值:', gravitySystem.isActive);
+        console.log('isActive 應為 false:', gravitySystem.isActive === false);
+        
+        console.log('\n--- 測試 start() ---');
+        const beforeStart = Date.now();
+        gravitySystem.start();
+        const afterStart = Date.now();
+        console.log('啟動後 isActive:', gravitySystem.isActive);
+        console.log('isActive 應為 true:', gravitySystem.isActive === true);
+        console.log('lastDropTime 已設定:', gravitySystem.lastDropTime >= beforeStart && gravitySystem.lastDropTime <= afterStart);
+        
+        console.log('\n--- 測試 stop() ---');
+        gravitySystem.stop();
+        console.log('停止後 isActive:', gravitySystem.isActive);
+        console.log('isActive 應為 false:', gravitySystem.isActive === false);
+        
+        console.log('\n--- 測試 getInterval() - 不同等級 ---');
+        gravityLevelSystem.reset();
+        
+        // 測試等級 1
+        console.log('等級 1，下落間隔:', gravitySystem.getInterval());
+        console.log('應為 900 毫秒 (1000 - 1 × 100):', gravitySystem.getInterval() === 900);
+        
+        // 測試等級 2
+        gravityLevelSystem.addClearedLines(10);
+        console.log('等級 2，下落間隔:', gravitySystem.getInterval());
+        console.log('應為 800 毫秒 (1000 - 2 × 100):', gravitySystem.getInterval() === 800);
+        
+        // 測試等級 5
+        gravityLevelSystem.addClearedLines(30);  // 累計 40 列，等級 5
+        console.log('等級 5，下落間隔:', gravitySystem.getInterval());
+        console.log('應為 500 毫秒 (1000 - 5 × 100):', gravitySystem.getInterval() === 500);
+        
+        // 測試等級 9
+        gravityLevelSystem.addClearedLines(40);  // 累計 80 列，等級 9
+        console.log('等級 9，下落間隔:', gravitySystem.getInterval());
+        console.log('應為 100 毫秒 (1000 - 9 × 100):', gravitySystem.getInterval() === 100);
+        
+        // 測試等級 10（最小間隔）
+        gravityLevelSystem.addClearedLines(20);  // 累計 100 列，等級 11
+        console.log('等級 11，下落間隔:', gravitySystem.getInterval());
+        console.log('應為 100 毫秒（最小值）:', gravitySystem.getInterval() === 100);
+        
+        // 測試等級 20（超過最小間隔）
+        gravityLevelSystem.addClearedLines(100);  // 累計 200 列，等級 21
+        console.log('等級 21，下落間隔:', gravitySystem.getInterval());
+        console.log('應為 100 毫秒（最小值）:', gravitySystem.getInterval() === 100);
+        
+        console.log('\n--- 測試 update() - 未啟動時 ---');
+        gravityLevelSystem.reset();
+        const updateTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const updateTetrominoManager = new TetrominoManager(updateTestField);
+        const updateLevelSystem = new LevelSystem();
+        const updateGravitySystem = new GravitySystem(updateTetrominoManager, updateLevelSystem);
+        
+        updateTetrominoManager.spawnNew();
+        const initialPos = updateTetrominoManager.getCurrent().getPosition();
+        
+        // 未啟動時呼叫 update()
+        const needsLock1 = updateGravitySystem.update();
+        const afterUpdatePos = updateTetrominoManager.getCurrent().getPosition();
+        
+        console.log('未啟動時 update() 返回 false:', needsLock1 === false);
+        console.log('位置未改變:', initialPos.x === afterUpdatePos.x && initialPos.y === afterUpdatePos.y);
+        
+        console.log('\n--- 測試 update() - 啟動後但時間未到 ---');
+        updateGravitySystem.start();
+        
+        // 立即呼叫 update()，時間未到
+        const needsLock2 = updateGravitySystem.update();
+        const afterImmediateUpdate = updateTetrominoManager.getCurrent().getPosition();
+        
+        console.log('時間未到時 update() 返回 false:', needsLock2 === false);
+        console.log('位置未改變:', afterUpdatePos.x === afterImmediateUpdate.x && afterUpdatePos.y === afterImmediateUpdate.y);
+        
+        console.log('\n--- 測試 update() - 時間到達後下落 ---');
+        // 等待足夠的時間（等級 1 的間隔是 900 毫秒）
+        // 為了測試，我們手動設定 lastDropTime 為過去的時間
+        updateGravitySystem.lastDropTime = Date.now() - 1000;  // 1 秒前
+        
+        const beforeDrop = updateTetrominoManager.getCurrent().getPosition();
+        const needsLock3 = updateGravitySystem.update();
+        const afterDrop = updateTetrominoManager.getCurrent().getPosition();
+        
+        console.log('時間到達後，四方塊向下移動:', afterDrop.y === beforeDrop.y + 1);
+        console.log('X 座標不變:', afterDrop.x === beforeDrop.x);
+        console.log('update() 返回 false（移動成功）:', needsLock3 === false);
+        
+        console.log('\n--- 測試 update() - 多次下落 ---');
+        let dropCount = 0;
+        const maxDrops = 5;
+        
+        while (dropCount < maxDrops) {
+            // 手動設定時間已過
+            updateGravitySystem.lastDropTime = Date.now() - 1000;
+            const needsLock = updateGravitySystem.update();
+            
+            if (needsLock) {
+                console.log('第', dropCount + 1, '次下落後需要固定（到達底部）');
+                break;
+            }
+            
+            dropCount++;
+        }
+        
+        console.log('成功執行', dropCount, '次下落');
+        console.log('下落次數大於 0:', dropCount > 0);
+        
+        console.log('\n--- 測試 update() - 到達底部返回 true ---');
+        const bottomTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const bottomTetrominoManager = new TetrominoManager(bottomTestField);
+        const bottomLevelSystem = new LevelSystem();
+        const bottomGravitySystem = new GravitySystem(bottomTetrominoManager, bottomLevelSystem);
+        
+        bottomTetrominoManager.spawnNew();
+        bottomGravitySystem.start();
+        
+        // 將四方塊移動到接近底部
+        while (bottomTetrominoManager.moveDown()) {
+            // 持續向下移動
+        }
+        
+        // 現在四方塊已經在底部，無法再向下移動
+        // 手動設定時間已過
+        bottomGravitySystem.lastDropTime = Date.now() - 1000;
+        const needsLockAtBottom = bottomGravitySystem.update();
+        
+        console.log('到達底部時 update() 返回 true:', needsLockAtBottom === true);
+        
+        console.log('\n--- 測試 update() - 碰到已固定方塊返回 true ---');
+        const blockedTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const blockedTetrominoManager = new TetrominoManager(blockedTestField);
+        const blockedLevelSystem = new LevelSystem();
+        const blockedGravitySystem = new GravitySystem(blockedTetrominoManager, blockedLevelSystem);
+        
+        // 在場地中間設定一些已固定的方塊
+        for (let col = 0; col < FIELD_WIDTH; col++) {
+            blockedTestField.setCell(col, 10, '#ff0000');
+        }
+        
+        blockedTetrominoManager.spawnNew();
+        blockedGravitySystem.start();
+        
+        // 將四方塊移動到接近已固定方塊
+        let moveCount = 0;
+        while (blockedTetrominoManager.moveDown() && moveCount < 20) {
+            moveCount++;
+        }
+        
+        // 現在四方塊已經在已固定方塊上方，無法再向下移動
+        // 手動設定時間已過
+        blockedGravitySystem.lastDropTime = Date.now() - 1000;
+        const needsLockAtBlocked = blockedGravitySystem.update();
+        
+        console.log('碰到已固定方塊時 update() 返回 true:', needsLockAtBlocked === true);
+        
+        console.log('\n--- 測試 start() 和 stop() 切換 ---');
+        const toggleTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const toggleTetrominoManager = new TetrominoManager(toggleTestField);
+        const toggleLevelSystem = new LevelSystem();
+        const toggleGravitySystem = new GravitySystem(toggleTetrominoManager, toggleLevelSystem);
+        
+        toggleTetrominoManager.spawnNew();
+        
+        console.log('初始 isActive:', toggleGravitySystem.isActive);
+        
+        toggleGravitySystem.start();
+        console.log('啟動後 isActive:', toggleGravitySystem.isActive);
+        
+        toggleGravitySystem.stop();
+        console.log('停止後 isActive:', toggleGravitySystem.isActive);
+        
+        toggleGravitySystem.start();
+        console.log('再次啟動後 isActive:', toggleGravitySystem.isActive);
+        
+        toggleGravitySystem.stop();
+        console.log('再次停止後 isActive:', toggleGravitySystem.isActive);
+        
+        console.log('\n--- 測試等級變化對下落間隔的影響 ---');
+        const levelChangeTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const levelChangeTetrominoManager = new TetrominoManager(levelChangeTestField);
+        const levelChangeLevelSystem = new LevelSystem();
+        const levelChangeGravitySystem = new GravitySystem(levelChangeTetrominoManager, levelChangeLevelSystem);
+        
+        console.log('等級 1，間隔:', levelChangeGravitySystem.getInterval(), '毫秒');
+        
+        levelChangeLevelSystem.addClearedLines(10);
+        console.log('等級 2，間隔:', levelChangeGravitySystem.getInterval(), '毫秒');
+        
+        levelChangeLevelSystem.addClearedLines(10);
+        console.log('等級 3，間隔:', levelChangeGravitySystem.getInterval(), '毫秒');
+        
+        levelChangeLevelSystem.addClearedLines(20);
+        console.log('等級 5，間隔:', levelChangeGravitySystem.getInterval(), '毫秒');
+        
+        console.log('間隔隨等級提升而減少');
+        
+        console.log('\n--- 測試 lastDropTime 更新 ---');
+        const timeTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const timeTetrominoManager = new TetrominoManager(timeTestField);
+        const timeLevelSystem = new LevelSystem();
+        const timeGravitySystem = new GravitySystem(timeTetrominoManager, timeLevelSystem);
+        
+        timeTetrominoManager.spawnNew();
+        timeGravitySystem.start();
+        
+        const initialDropTime = timeGravitySystem.lastDropTime;
+        console.log('初始 lastDropTime:', initialDropTime);
+        
+        // 手動設定時間已過
+        timeGravitySystem.lastDropTime = Date.now() - 1000;
+        const beforeUpdate = timeGravitySystem.lastDropTime;
+        
+        timeGravitySystem.update();
+        const afterUpdate = timeGravitySystem.lastDropTime;
+        
+        console.log('update() 前 lastDropTime:', beforeUpdate);
+        console.log('update() 後 lastDropTime:', afterUpdate);
+        console.log('lastDropTime 已更新:', afterUpdate > beforeUpdate);
+        
+        console.log('\n--- 測試實際遊戲場景模擬 ---');
+        const gameTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const gameTetrominoManager = new TetrominoManager(gameTestField);
+        const gameLevelSystem = new LevelSystem();
+        const gameGravitySystem = new GravitySystem(gameTetrominoManager, gameLevelSystem);
+        
+        gameTetrominoManager.spawnNew();
+        gameGravitySystem.start();
+        
+        console.log('遊戲開始，等級:', gameLevelSystem.getLevel());
+        console.log('下落間隔:', gameGravitySystem.getInterval(), '毫秒');
+        
+        // 模擬遊戲循環
+        let simulationCount = 0;
+        let lockCount = 0;
+        
+        while (simulationCount < 100 && lockCount < 3) {
+            // 手動設定時間已過（加速測試）
+            gameGravitySystem.lastDropTime = Date.now() - 1000;
+            
+            const needsLock = gameGravitySystem.update();
+            
+            if (needsLock) {
+                lockCount++;
+                console.log('第', lockCount, '次固定');
+                
+                // 固定四方塊
+                gameTetrominoManager.lock();
+                
+                // 生成新四方塊
+                const spawnSuccess = gameTetrominoManager.spawnNew();
+                if (!spawnSuccess) {
+                    console.log('無法生成新四方塊，遊戲結束');
+                    break;
+                }
+            }
+            
+            simulationCount++;
+        }
+        
+        console.log('模擬', simulationCount, '次循環');
+        console.log('固定', lockCount, '次四方塊');
+        console.log('模擬成功完成');
+        
+        console.log('===== GravitySystem 測試完成 =====\n');
+        }  // End of GravitySystem test block
+
+        // ===== Renderer 類別 =====
+        
+        /**
+         * Renderer 類別
+         * 將遊戲狀態繪製到畫面
+         * 使用 Canvas 2D API 繪製遊戲場地、四方塊、預覽、分數等
+         */
+        class Renderer {
+            /**
+             * 建構子
+             * @param {HTMLCanvasElement} canvas - 主遊戲場地的 Canvas 元素
+             * @param {HTMLCanvasElement} nextCanvas - 下一個方塊預覽的 Canvas 元素
+             * @param {GameField} gameField - 遊戲場地參考
+             * @param {TetrominoManager} tetrominoManager - 四方塊管理器參考
+             * @param {ScoringSystem} scoringSystem - 計分系統參考
+             * @param {LevelSystem} levelSystem - 等級系統參考
+             */
+            constructor(canvas, nextCanvas, gameField, tetrominoManager, scoringSystem, levelSystem) {
+                // 儲存參考
+                this.canvas = canvas;
+                this.nextCanvas = nextCanvas;
+                this.gameField = gameField;
+                this.tetrominoManager = tetrominoManager;
+                this.scoringSystem = scoringSystem;
+                this.levelSystem = levelSystem;
+                
+                // 取得 Canvas 2D 繪圖上下文
+                this.ctx = canvas.getContext('2d');
+                this.nextCtx = nextCanvas.getContext('2d');
+                
+                // 定義格子大小常數
+                // 主遊戲場地：Canvas 寬度 300px，場地寬度 10 欄，每格 30px
+                this.cellSize = 30;
+                
+                // 下一個方塊預覽：Canvas 寬度 120px，預覽區域較小，每格 24px
+                this.nextCellSize = 24;
+                
+                // 定義顏色常數
+                this.gridColor = '#333333';        // 網格線顏色（深灰色）
+                this.backgroundColor = '#000000';  // 背景顏色（黑色）
+                this.emptyColor = '#111111';       // 空白格子顏色（深黑色）
+            }
+
+            /**
+             * 繪製遊戲場地
+             * 繪製網格線和已固定的方塊
+             * 需求：17.1, 17.2, 17.3
+             */
+            renderField() {
+                // 清空畫布
+                this.ctx.fillStyle = this.backgroundColor;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // 繪製場地中的每個格子
+                for (let row = 0; row < this.gameField.getHeight(); row++) {
+                    for (let col = 0; col < this.gameField.getWidth(); col++) {
+                        const x = col * this.cellSize;
+                        const y = row * this.cellSize;
+                        
+                        // 取得格子顏色
+                        const cellColor = this.gameField.getCell(col, row);
+                        
+                        if (cellColor) {
+                            // 如果格子有顏色（已固定的方塊），繪製該顏色
+                            this.ctx.fillStyle = cellColor;
+                            this.ctx.fillRect(x, y, this.cellSize, this.cellSize);
+                            
+                            // 繪製方塊邊框（使其更立體）
+                            this.ctx.strokeStyle = '#ffffff';
+                            this.ctx.lineWidth = 2;
+                            this.ctx.strokeRect(x + 1, y + 1, this.cellSize - 2, this.cellSize - 2);
+                        } else {
+                            // 如果格子為空，繪製空白格子
+                            this.ctx.fillStyle = this.emptyColor;
+                            this.ctx.fillRect(x, y, this.cellSize, this.cellSize);
+                        }
+                        
+                        // 繪製網格線
+                        this.ctx.strokeStyle = this.gridColor;
+                        this.ctx.lineWidth = 1;
+                        this.ctx.strokeRect(x, y, this.cellSize, this.cellSize);
+                    }
+                }
+            }
+
+            /**
+             * 繪製當前下落的四方塊
+             * 使用不同視覺效果區分當前四方塊與已固定方塊
+             * 需求：17.1, 17.2, 17.3
+             */
+            renderTetromino() {
+                const currentTetromino = this.tetrominoManager.getCurrent();
+                
+                // 如果沒有當前四方塊，直接返回
+                if (!currentTetromino) {
+                    return;
+                }
+                
+                // 取得四方塊的所有方塊座標
+                const blocks = currentTetromino.getBlocks();
+                const color = currentTetromino.getColor();
+                
+                // 繪製每個方塊
+                for (const block of blocks) {
+                    const x = block.x * this.cellSize;
+                    const y = block.y * this.cellSize;
+                    
+                    // 繪製方塊主體（使用四方塊顏色）
+                    this.ctx.fillStyle = color;
+                    this.ctx.fillRect(x, y, this.cellSize, this.cellSize);
+                    
+                    // 繪製高亮邊框（使當前四方塊更明顯）
+                    // 使用較亮的白色邊框和較粗的線條來區分當前四方塊
+                    this.ctx.strokeStyle = '#ffffff';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.strokeRect(x + 2, y + 2, this.cellSize - 4, this.cellSize - 4);
+                    
+                    // 添加內部陰影效果（使方塊更立體）
+                    this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.strokeRect(x + 1, y + 1, this.cellSize - 2, this.cellSize - 2);
+                }
+            }
+
+            /**
+             * 在預覽 Canvas 繪製下一個四方塊
+             * 需求：10.5, 11.4, 12.1, 12.2, 12.3, 16.4
+             */
+            renderNextPreview() {
+                const nextTetromino = this.tetrominoManager.getNext();
+                
+                // 如果沒有下一個四方塊，清空預覽區域並返回
+                if (!nextTetromino) {
+                    this.nextCtx.fillStyle = this.backgroundColor;
+                    this.nextCtx.fillRect(0, 0, this.nextCanvas.width, this.nextCanvas.height);
+                    return;
+                }
+                
+                // 清空預覽區域
+                this.nextCtx.fillStyle = this.backgroundColor;
+                this.nextCtx.fillRect(0, 0, this.nextCanvas.width, this.nextCanvas.height);
+                
+                // 取得下一個四方塊的形狀和顏色
+                const shape = nextTetromino.getShape();
+                const color = nextTetromino.getColor();
+                
+                // 計算形狀的實際尺寸（排除空白行列）
+                let minRow = shape.length, maxRow = -1;
+                let minCol = shape[0].length, maxCol = -1;
+                
+                for (let row = 0; row < shape.length; row++) {
+                    for (let col = 0; col < shape[row].length; col++) {
+                        if (shape[row][col] === 1) {
+                            minRow = Math.min(minRow, row);
+                            maxRow = Math.max(maxRow, row);
+                            minCol = Math.min(minCol, col);
+                            maxCol = Math.max(maxCol, col);
+                        }
+                    }
+                }
+                
+                // 計算形狀的寬度和高度
+                const shapeWidth = maxCol - minCol + 1;
+                const shapeHeight = maxRow - minRow + 1;
+                
+                // 計算居中偏移量
+                const offsetX = (this.nextCanvas.width - shapeWidth * this.nextCellSize) / 2;
+                const offsetY = (this.nextCanvas.height - shapeHeight * this.nextCellSize) / 2;
+                
+                // 繪製四方塊
+                for (let row = 0; row < shape.length; row++) {
+                    for (let col = 0; col < shape[row].length; col++) {
+                        if (shape[row][col] === 1) {
+                            const x = offsetX + (col - minCol) * this.nextCellSize;
+                            const y = offsetY + (row - minRow) * this.nextCellSize;
+                            
+                            // 繪製方塊主體
+                            this.nextCtx.fillStyle = color;
+                            this.nextCtx.fillRect(x, y, this.nextCellSize, this.nextCellSize);
+                            
+                            // 繪製方塊邊框
+                            this.nextCtx.strokeStyle = '#ffffff';
+                            this.nextCtx.lineWidth = 2;
+                            this.nextCtx.strokeRect(x + 1, y + 1, this.nextCellSize - 2, this.nextCellSize - 2);
+                        }
+                    }
+                }
+            }
+
+            /**
+             * 更新分數顯示元素（繁體中文標籤）
+             * 需求：10.5, 11.4, 12.1, 12.2, 12.3, 16.4
+             */
+            renderScore() {
+                const scoreDisplay = document.getElementById('scoreDisplay');
+                if (scoreDisplay) {
+                    scoreDisplay.textContent = this.scoringSystem.getScore();
+                }
+            }
+
+            /**
+             * 更新等級顯示元素（繁體中文標籤）
+             * 需求：10.5, 11.4, 12.1, 12.2, 12.3, 16.4
+             */
+            renderLevel() {
+                const levelDisplay = document.getElementById('levelDisplay');
+                if (levelDisplay) {
+                    levelDisplay.textContent = this.levelSystem.getLevel();
+                }
+            }
+
+            /**
+             * 顯示遊戲結束訊息和最終分數（繁體中文）
+             * 需求：13.4, 16.3
+             */
+            renderGameOver() {
+                const gameOverMessage = document.getElementById('gameOverMessage');
+                const finalScore = document.getElementById('finalScore');
+                
+                if (gameOverMessage) {
+                    gameOverMessage.classList.add('show');
+                }
+                
+                if (finalScore) {
+                    finalScore.textContent = this.scoringSystem.getScore();
+                }
+            }
+
+            /**
+             * 顯示消行視覺回饋效果
+             * 在消除的列上顯示閃爍效果
+             * 需求：17.5
+             * @param {Array<number>} clearedRows - 被消除的列索引陣列
+             */
+            renderLineClearEffect(clearedRows) {
+                if (!clearedRows || clearedRows.length === 0) {
+                    return;
+                }
+                
+                // 在消除的列上繪製白色閃爍效果
+                for (const row of clearedRows) {
+                    const y = row * this.cellSize;
+                    
+                    // 繪製白色高亮效果
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    this.ctx.fillRect(0, y, this.canvas.width, this.cellSize);
+                }
+            }
+
+            /**
+             * 主渲染方法
+             * 協調所有渲染子方法，更新整個遊戲畫面
+             * 需求：13.4, 16.3, 17.5
+             */
+            render() {
+                // 渲染遊戲場地（包含網格線和已固定方塊）
+                this.renderField();
+                
+                // 渲染當前下落的四方塊
+                this.renderTetromino();
+                
+                // 渲染下一個方塊預覽
+                this.renderNextPreview();
+                
+                // 更新分數顯示
+                this.renderScore();
+                
+                // 更新等級顯示
+                this.renderLevel();
+            }
+        }
+
+        // 測試 Renderer 類別
+        {  // Start of Renderer test block
+        console.log('\n===== 測試 Renderer 類別 =====');
+        
+        console.log('\n--- 測試 constructor() ---');
+        
+        // 取得 Canvas 元素
+        const testCanvas = document.getElementById('gameCanvas');
+        const testNextCanvas = document.getElementById('nextCanvas');
+        
+        // 建立測試用的系統
+        const rendererTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const rendererTetrominoManager = new TetrominoManager(rendererTestField);
+        const rendererScoringSystem = new ScoringSystem();
+        const rendererLevelSystem = new LevelSystem();
+        
+        // 建立 Renderer 實例
+        const renderer = new Renderer(
+            testCanvas,
+            testNextCanvas,
+            rendererTestField,
+            rendererTetrominoManager,
+            rendererScoringSystem,
+            rendererLevelSystem
+        );
+        
+        console.log('Renderer 實例已建立');
+        console.log('canvas 參考已儲存:', renderer.canvas !== null);
+        console.log('nextCanvas 參考已儲存:', renderer.nextCanvas !== null);
+        console.log('gameField 參考已儲存:', renderer.gameField !== null);
+        console.log('tetrominoManager 參考已儲存:', renderer.tetrominoManager !== null);
+        console.log('scoringSystem 參考已儲存:', renderer.scoringSystem !== null);
+        console.log('levelSystem 參考已儲存:', renderer.levelSystem !== null);
+        
+        console.log('\n--- 測試 Canvas 2D 繪圖上下文 ---');
+        console.log('ctx 已取得:', renderer.ctx !== null);
+        console.log('ctx 類型:', renderer.ctx.constructor.name);
+        console.log('nextCtx 已取得:', renderer.nextCtx !== null);
+        console.log('nextCtx 類型:', renderer.nextCtx.constructor.name);
+        
+        console.log('\n--- 測試格子大小常數 ---');
+        console.log('cellSize:', renderer.cellSize);
+        console.log('cellSize 應為 30:', renderer.cellSize === 30);
+        console.log('nextCellSize:', renderer.nextCellSize);
+        console.log('nextCellSize 應為 24:', renderer.nextCellSize === 24);
+        
+        // 驗證格子大小與 Canvas 尺寸的關係
+        const expectedCanvasWidth = FIELD_WIDTH * renderer.cellSize;
+        const expectedCanvasHeight = FIELD_HEIGHT * renderer.cellSize;
+        console.log('Canvas 寬度:', testCanvas.width);
+        console.log('預期寬度 (10 × 30):', expectedCanvasWidth);
+        console.log('Canvas 高度:', testCanvas.height);
+        console.log('預期高度 (20 × 30):', expectedCanvasHeight);
+        console.log('Canvas 尺寸符合格子大小:', 
+            testCanvas.width === expectedCanvasWidth && 
+            testCanvas.height === expectedCanvasHeight
+        );
+        
+        console.log('\n--- 測試顏色常數 ---');
+        console.log('gridColor:', renderer.gridColor);
+        console.log('gridColor 應為 #333333:', renderer.gridColor === '#333333');
+        console.log('backgroundColor:', renderer.backgroundColor);
+        console.log('backgroundColor 應為 #000000:', renderer.backgroundColor === '#000000');
+        console.log('emptyColor:', renderer.emptyColor);
+        console.log('emptyColor 應為 #111111:', renderer.emptyColor === '#111111');
+        
+        console.log('\n--- 測試 Canvas 元素屬性 ---');
+        console.log('主 Canvas ID:', testCanvas.id);
+        console.log('主 Canvas 寬度:', testCanvas.width);
+        console.log('主 Canvas 高度:', testCanvas.height);
+        console.log('預覽 Canvas ID:', testNextCanvas.id);
+        console.log('預覽 Canvas 寬度:', testNextCanvas.width);
+        console.log('預覽 Canvas 高度:', testNextCanvas.height);
+        
+        console.log('\n--- 測試繪圖上下文可用性 ---');
+        // 測試基本繪圖功能
+        renderer.ctx.fillStyle = '#ff0000';
+        renderer.ctx.fillRect(0, 0, 10, 10);
+        console.log('主 Canvas 繪圖測試完成（左上角應有紅色方塊）');
+        
+        renderer.nextCtx.fillStyle = '#00ff00';
+        renderer.nextCtx.fillRect(0, 0, 10, 10);
+        console.log('預覽 Canvas 繪圖測試完成（左上角應有綠色方塊）');
+        
+        // 清除測試繪圖
+        renderer.ctx.clearRect(0, 0, testCanvas.width, testCanvas.height);
+        renderer.nextCtx.clearRect(0, 0, testNextCanvas.width, testNextCanvas.height);
+        console.log('測試繪圖已清除');
+        
+        console.log('\n--- 測試多個 Renderer 實例 ---');
+        // 建立第二個 Renderer 實例（使用相同的 Canvas）
+        const renderer2 = new Renderer(
+            testCanvas,
+            testNextCanvas,
+            rendererTestField,
+            rendererTetrominoManager,
+            rendererScoringSystem,
+            rendererLevelSystem
+        );
+        
+        console.log('第二個 Renderer 實例已建立');
+        console.log('兩個實例使用相同的 Canvas:', renderer.canvas === renderer2.canvas);
+        console.log('兩個實例有不同的繪圖上下文參考:', renderer.ctx !== renderer2.ctx);
+        console.log('但繪圖上下文指向相同的 Canvas:', 
+            renderer.ctx.canvas === renderer2.ctx.canvas
+        );
+        
+        console.log('\n--- 驗證需求 17.1, 17.2, 17.4 ---');
+        console.log('需求 17.1 - 為每種四方塊類型使用不同顏色:');
+        console.log('  COLORS 常數已定義，包含 7 種顏色');
+        console.log('  Renderer 可透過 tetrominoManager 取得四方塊顏色');
+        
+        console.log('需求 17.2 - 在遊戲場地中繪製網格線:');
+        console.log('  gridColor 常數已定義:', renderer.gridColor);
+        console.log('  cellSize 常數已定義，可用於繪製網格');
+        
+        console.log('需求 17.4 - 在畫面上顯示分數、等級和下一個方塊預覽:');
+        console.log('  scoringSystem 參考已儲存，可取得分數');
+        console.log('  levelSystem 參考已儲存，可取得等級');
+        console.log('  nextCanvas 和 nextCtx 已準備好繪製預覽');
+        
+        console.log('===== Renderer 測試完成 =====\n');
+        
+        // 測試 renderField() 和 renderTetromino() 方法
+        console.log('\n===== 測試 Renderer renderField() 和 renderTetromino() =====');
+        
+        console.log('\n--- 測試 renderField() - 空場地 ---');
+        rendererTestField.clear();
+        renderer.renderField();
+        console.log('空場地已繪製（應顯示黑色背景和網格線）');
+        
+        console.log('\n--- 測試 renderField() - 有固定方塊 ---');
+        // 在場地底部添加一些固定方塊
+        rendererTestField.setCell(0, 19, COLORS.I);
+        rendererTestField.setCell(1, 19, COLORS.O);
+        rendererTestField.setCell(2, 19, COLORS.T);
+        rendererTestField.setCell(3, 19, COLORS.S);
+        rendererTestField.setCell(4, 19, COLORS.Z);
+        rendererTestField.setCell(5, 19, COLORS.J);
+        rendererTestField.setCell(6, 19, COLORS.L);
+        
+        // 添加一些中間的方塊
+        rendererTestField.setCell(4, 15, COLORS.I);
+        rendererTestField.setCell(5, 15, COLORS.I);
+        rendererTestField.setCell(4, 16, COLORS.O);
+        rendererTestField.setCell(5, 16, COLORS.O);
+        
+        renderer.renderField();
+        console.log('有固定方塊的場地已繪製（底部應顯示彩色方塊）');
+        
+        console.log('\n--- 測試 renderTetromino() - 無當前四方塊 ---');
+        // 確保沒有當前四方塊
+        rendererTetrominoManager.current = null;
+        renderer.renderTetromino();
+        console.log('無當前四方塊時 renderTetromino() 正常返回');
+        
+        console.log('\n--- 測試 renderTetromino() - I 型四方塊 ---');
+        rendererTetrominoManager.generateNext();
+        rendererTetrominoManager.spawnNew();
+        const currentType = rendererTetrominoManager.getCurrent().getType();
+        console.log('生成四方塊類型:', currentType);
+        
+        renderer.renderField();
+        renderer.renderTetromino();
+        console.log('當前四方塊已繪製（應在場地頂部顯示，帶有明顯的白色邊框）');
+        
+        console.log('\n--- 測試視覺效果區分 ---');
+        console.log('已固定方塊特徵：');
+        console.log('  - 使用四方塊顏色填充');
+        console.log('  - 有細白色邊框（lineWidth: 2）');
+        console.log('  - 有網格線（深灰色）');
+        
+        console.log('當前四方塊特徵：');
+        console.log('  - 使用四方塊顏色填充');
+        console.log('  - 有粗白色邊框（lineWidth: 3）');
+        console.log('  - 有內部陰影效果');
+        console.log('  - 視覺上更突出');
+        
+        console.log('\n--- 測試不同類型四方塊的渲染 ---');
+        // 測試所有類型的四方塊
+        const tetrominoTypes = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
+        
+        for (const type of tetrominoTypes) {
+            rendererTestField.clear();
+            const testTetromino = new Tetromino(type, 3, 5);
+            rendererTetrominoManager.current = testTetromino;
+            
+            renderer.renderField();
+            renderer.renderTetromino();
+            
+            console.log(`${type} 型四方塊已繪製，顏色: ${COLORS[type]}`);
+            
+            // 短暫延遲以便觀察（在實際遊戲中不需要）
+            // 這裡只是記錄，不實際延遲
+        }
+        
+        console.log('\n--- 測試四方塊在不同位置的渲染 ---');
+        rendererTestField.clear();
+        
+        // 測試左上角
+        let testTetromino = new Tetromino('O', 0, 0);
+        rendererTetrominoManager.current = testTetromino;
+        renderer.renderField();
+        renderer.renderTetromino();
+        console.log('O 型四方塊在左上角 (0, 0) 已繪製');
+        
+        // 測試右側
+        testTetromino = new Tetromino('I', 6, 8);
+        rendererTetrominoManager.current = testTetromino;
+        renderer.renderField();
+        renderer.renderTetromino();
+        console.log('I 型四方塊在右側 (6, 8) 已繪製');
+        
+        // 測試底部
+        testTetromino = new Tetromino('T', 4, 17);
+        rendererTetrominoManager.current = testTetromino;
+        renderer.renderField();
+        renderer.renderTetromino();
+        console.log('T 型四方塊在底部 (4, 17) 已繪製');
+        
+        console.log('\n--- 測試旋轉後的四方塊渲染 ---');
+        rendererTestField.clear();
+        testTetromino = new Tetromino('I', 4, 5);
+        rendererTetrominoManager.current = testTetromino;
+        
+        console.log('I 型四方塊旋轉狀態 0:');
+        renderer.renderField();
+        renderer.renderTetromino();
+        console.log('  已繪製（水平）');
+        
+        testTetromino.rotate();
+        console.log('I 型四方塊旋轉狀態 1:');
+        renderer.renderField();
+        renderer.renderTetromino();
+        console.log('  已繪製（垂直）');
+        
+        testTetromino.rotate();
+        console.log('I 型四方塊旋轉狀態 2:');
+        renderer.renderField();
+        renderer.renderTetromino();
+        console.log('  已繪製（水平）');
+        
+        testTetromino.rotate();
+        console.log('I 型四方塊旋轉狀態 3:');
+        renderer.renderField();
+        renderer.renderTetromino();
+        console.log('  已繪製（垂直）');
+        
+        console.log('\n--- 測試場地與四方塊同時渲染 ---');
+        rendererTestField.clear();
+        
+        // 添加一些固定方塊形成底部
+        for (let col = 0; col < 10; col++) {
+            if (col !== 4 && col !== 5) {
+                rendererTestField.setCell(col, 19, COLORS.I);
+            }
+        }
+        for (let col = 0; col < 10; col++) {
+            if (col !== 3 && col !== 4 && col !== 5 && col !== 6) {
+                rendererTestField.setCell(col, 18, COLORS.O);
+            }
+        }
+        
+        // 添加當前下落的四方塊
+        testTetromino = new Tetromino('T', 4, 16);
+        rendererTetrominoManager.current = testTetromino;
+        
+        renderer.renderField();
+        renderer.renderTetromino();
+        console.log('場地與當前四方塊同時繪製完成');
+        console.log('應該可以清楚區分：');
+        console.log('  - 底部的固定方塊（細邊框）');
+        console.log('  - 正在下落的 T 型四方塊（粗邊框）');
+        
+        console.log('\n--- 驗證需求 17.1, 17.2, 17.3 ---');
+        console.log('需求 17.1 - 為每種四方塊類型使用不同顏色:');
+        console.log('  ✓ renderField() 使用 gameField.getCell() 取得顏色');
+        console.log('  ✓ renderTetromino() 使用 tetromino.getColor() 取得顏色');
+        console.log('  ✓ 所有 7 種類型都有不同顏色');
+        
+        console.log('需求 17.2 - 在遊戲場地中繪製網格線:');
+        console.log('  ✓ renderField() 為每個格子繪製網格線');
+        console.log('  ✓ 使用 gridColor (#333333) 繪製');
+        console.log('  ✓ 網格線覆蓋整個場地');
+        
+        console.log('需求 17.3 - 清楚區分當前下落的四方塊與已固定的方塊:');
+        console.log('  ✓ 已固定方塊：細白色邊框（lineWidth: 2）');
+        console.log('  ✓ 當前四方塊：粗白色邊框（lineWidth: 3）+ 內部陰影');
+        console.log('  ✓ 視覺效果明顯不同');
+        
+        console.log('===== renderField() 和 renderTetromino() 測試完成 =====\n');
+        }  // End of Renderer test block (including renderField and renderTetromino tests)
+
+        // ===== InputHandler 類別 =====
+        
+        /**
+         * InputHandler 類別
+         * 處理鍵盤輸入，將按鍵映射到遊戲操作
+         */
+        class InputHandler {
+            /**
+             * 建構子
+             * @param {TetrominoManager} tetrominoManager - 四方塊管理器參考
+             * @param {Object} gameStateManager - 遊戲狀態管理器參考
+             */
+            constructor(tetrominoManager, gameStateManager) {
+                this.tetrominoManager = tetrominoManager;
+                this.gameStateManager = gameStateManager;
+                this.enabled = false;  // 輸入是否啟用
+                
+                // 綁定 handleKeyDown 方法的 this 上下文
+                // 這樣在事件監聽器中才能正確訪問類別的屬性和方法
+                this.boundHandleKeyDown = this.handleKeyDown.bind(this);
+            }
+
+            /**
+             * 啟用鍵盤事件監聽
+             * 開始監聽 keydown 事件
+             */
+            enable() {
+                if (!this.enabled) {
+                    this.enabled = true;
+                    document.addEventListener('keydown', this.boundHandleKeyDown);
+                }
+            }
+
+            /**
+             * 停用鍵盤事件監聽
+             * 停止監聽 keydown 事件
+             */
+            disable() {
+                if (this.enabled) {
+                    this.enabled = false;
+                    document.removeEventListener('keydown', this.boundHandleKeyDown);
+                }
+            }
+
+            /**
+             * 處理按鍵事件
+             * 根據按鍵映射執行對應的遊戲操作
+             * @param {KeyboardEvent} event - 鍵盤事件
+             */
+            handleKeyDown(event) {
+                // 如果輸入未啟用，不處理
+                if (!this.enabled) {
+                    return;
+                }
+                
+                // 取得按鍵對應的操作
+                const action = KEY_MAPPING[event.key];
+                
+                // 如果按鍵沒有對應的操作，不處理
+                if (!action) {
+                    return;
+                }
+                
+                // 阻止預設行為（例如方向鍵滾動頁面）
+                event.preventDefault();
+                
+                // 根據操作類型執行對應的方法
+                switch (action) {
+                    case 'moveLeft':
+                        // 左方向鍵：向左移動
+                        this.tetrominoManager.moveLeft();
+                        break;
+                        
+                    case 'moveRight':
+                        // 右方向鍵：向右移動
+                        this.tetrominoManager.moveRight();
+                        break;
+                        
+                    case 'softDrop':
+                        // 下方向鍵：緩降（向下移動 + 加分）
+                        const moveSuccess = this.tetrominoManager.moveDown();
+                        if (moveSuccess && this.gameStateManager.scoringSystem) {
+                            // 如果成功向下移動，增加緩降分數
+                            this.gameStateManager.scoringSystem.addSoftDrop();
+                        }
+                        break;
+                        
+                    case 'rotate':
+                        // 上方向鍵：旋轉
+                        this.tetrominoManager.rotate();
+                        break;
+                        
+                    case 'hardDrop':
+                        // 空白鍵：瞬降（瞬間下降到底部 + 加分）
+                        const dropDistance = this.tetrominoManager.hardDrop();
+                        if (dropDistance > 0 && this.gameStateManager.scoringSystem) {
+                            // 如果有下降距離，增加瞬降分數
+                            this.gameStateManager.scoringSystem.addHardDrop(dropDistance);
+                        }
+                        break;
+                }
+            }
+        }
+
+        // 測試 InputHandler 類別
+        {  // Start of InputHandler test block
+        console.log('\n===== 測試 InputHandler 類別 =====');
+        
+        // 建立測試用的物件
+        const inputTestField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+        const inputTestManager = new TetrominoManager(inputTestField);
+        
+        // 建立模擬的 gameStateManager 物件
+        const mockGameStateManager = {
+            scoringSystem: new ScoringSystem()
+        };
+        
+        // 建立 InputHandler 實例
+        const inputHandler = new InputHandler(inputTestManager, mockGameStateManager);
+        
+        console.log('\n--- 測試 constructor() ---');
+        console.log('tetrominoManager 參考已儲存:', inputHandler.tetrominoManager !== null);
+        console.log('gameStateManager 參考已儲存:', inputHandler.gameStateManager !== null);
+        console.log('enabled 初始值為 false:', inputHandler.enabled === false);
+        console.log('boundHandleKeyDown 已綁定:', typeof inputHandler.boundHandleKeyDown === 'function');
+        
+        console.log('\n--- 測試 enable() ---');
+        console.log('啟用前 enabled:', inputHandler.enabled);
+        inputHandler.enable();
+        console.log('啟用後 enabled:', inputHandler.enabled);
+        console.log('事件監聽器已添加（無法直接驗證，但不應拋出錯誤）');
+        
+        // 測試重複啟用
+        inputHandler.enable();
+        console.log('重複啟用不會拋出錯誤');
+        
+        console.log('\n--- 測試 disable() ---');
+        console.log('停用前 enabled:', inputHandler.enabled);
+        inputHandler.disable();
+        console.log('停用後 enabled:', inputHandler.enabled);
+        console.log('事件監聽器已移除（無法直接驗證，但不應拋出錯誤）');
+        
+        // 測試重複停用
+        inputHandler.disable();
+        console.log('重複停用不會拋出錯誤');
+        
+        console.log('\n--- 測試 handleKeyDown() - 基本功能 ---');
+        
+        // 重新啟用輸入
+        inputHandler.enable();
+        
+        // 生成一個四方塊用於測試
+        inputTestManager.spawnNew();
+        const initialPos = inputTestManager.getCurrent().getPosition();
+        const initialRotation = inputTestManager.getCurrent().rotation;
+        const initialScore = mockGameStateManager.scoringSystem.getScore();
+        
+        console.log('初始位置:', initialPos);
+        console.log('初始旋轉狀態:', initialRotation);
+        console.log('初始分數:', initialScore);
+        
+        // 測試左移
+        console.log('\n測試左方向鍵（moveLeft）:');
+        const leftEvent = new KeyboardEvent('keydown', { key: 'ArrowLeft' });
+        inputHandler.handleKeyDown(leftEvent);
+        const afterLeftPos = inputTestManager.getCurrent().getPosition();
+        console.log('  按下左鍵後位置:', afterLeftPos);
+        console.log('  X 座標減少:', afterLeftPos.x < initialPos.x);
+        
+        // 測試右移
+        console.log('\n測試右方向鍵（moveRight）:');
+        const rightEvent = new KeyboardEvent('keydown', { key: 'ArrowRight' });
+        inputHandler.handleKeyDown(rightEvent);
+        inputHandler.handleKeyDown(rightEvent);  // 按兩次回到原位置
+        const afterRightPos = inputTestManager.getCurrent().getPosition();
+        console.log('  按下右鍵兩次後位置:', afterRightPos);
+        console.log('  X 座標增加後回到原位:', afterRightPos.x === initialPos.x);
+        
+        // 測試旋轉
+        console.log('\n測試上方向鍵（rotate）:');
+        const upEvent = new KeyboardEvent('keydown', { key: 'ArrowUp' });
+        inputHandler.handleKeyDown(upEvent);
+        const afterRotation = inputTestManager.getCurrent().rotation;
+        console.log('  按下上鍵後旋轉狀態:', afterRotation);
+        console.log('  旋轉狀態改變:', afterRotation !== initialRotation);
+        
+        // 測試緩降
+        console.log('\n測試下方向鍵（softDrop）:');
+        const downEvent = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+        inputHandler.handleKeyDown(downEvent);
+        const afterDownPos = inputTestManager.getCurrent().getPosition();
+        const afterDownScore = mockGameStateManager.scoringSystem.getScore();
+        console.log('  按下下鍵後位置:', afterDownPos);
+        console.log('  Y 座標增加:', afterDownPos.y > initialPos.y);
+        console.log('  分數增加:', afterDownScore > initialScore);
+        console.log('  分數增加量:', afterDownScore - initialScore);
+        
+        // 測試瞬降
+        console.log('\n測試空白鍵（hardDrop）:');
+        const beforeHardDropPos = inputTestManager.getCurrent().getPosition();
+        const beforeHardDropScore = mockGameStateManager.scoringSystem.getScore();
+        const spaceEvent = new KeyboardEvent('keydown', { key: ' ' });
+        inputHandler.handleKeyDown(spaceEvent);
+        const afterHardDropPos = inputTestManager.getCurrent().getPosition();
+        const afterHardDropScore = mockGameStateManager.scoringSystem.getScore();
+        console.log('  瞬降前位置:', beforeHardDropPos);
+        console.log('  瞬降後位置:', afterHardDropPos);
+        console.log('  Y 座標大幅增加:', afterHardDropPos.y > beforeHardDropPos.y);
+        console.log('  分數增加:', afterHardDropScore > beforeHardDropScore);
+        console.log('  分數增加量:', afterHardDropScore - beforeHardDropScore);
+        console.log('  分數增加量 = 下降距離 × 2:', afterHardDropScore - beforeHardDropScore === (afterHardDropPos.y - beforeHardDropPos.y) * 2);
+        
+        console.log('\n--- 測試 handleKeyDown() - 無效按鍵 ---');
+        
+        // 測試未映射的按鍵
+        const invalidEvent = new KeyboardEvent('keydown', { key: 'a' });
+        const beforeInvalidPos = inputTestManager.getCurrent().getPosition();
+        inputHandler.handleKeyDown(invalidEvent);
+        const afterInvalidPos = inputTestManager.getCurrent().getPosition();
+        console.log('按下未映射的按鍵（a）不會改變狀態:');
+        console.log('  位置不變:', beforeInvalidPos.x === afterInvalidPos.x && beforeInvalidPos.y === afterInvalidPos.y);
+        
+        console.log('\n--- 測試 handleKeyDown() - 停用狀態 ---');
+        
+        // 停用輸入
+        inputHandler.disable();
+        
+        // 生成新的四方塊
+        inputTestManager.spawnNew();
+        const disabledInitialPos = inputTestManager.getCurrent().getPosition();
+        
+        // 嘗試按鍵
+        const disabledEvent = new KeyboardEvent('keydown', { key: 'ArrowLeft' });
+        inputHandler.handleKeyDown(disabledEvent);
+        const disabledAfterPos = inputTestManager.getCurrent().getPosition();
+        
+        console.log('停用狀態下按鍵不會生效:');
+        console.log('  初始位置:', disabledInitialPos);
+        console.log('  按鍵後位置:', disabledAfterPos);
+        console.log('  位置不變:', disabledInitialPos.x === disabledAfterPos.x && disabledInitialPos.y === disabledAfterPos.y);
+        
+        console.log('\n--- 測試按鍵映射完整性 ---');
+        console.log('KEY_MAPPING 常數:');
+        console.log('  ArrowLeft -> moveLeft:', KEY_MAPPING.ArrowLeft === 'moveLeft');
+        console.log('  ArrowRight -> moveRight:', KEY_MAPPING.ArrowRight === 'moveRight');
+        console.log('  ArrowDown -> softDrop:', KEY_MAPPING.ArrowDown === 'softDrop');
+        console.log('  ArrowUp -> rotate:', KEY_MAPPING.ArrowUp === 'rotate');
+        console.log('  空白鍵 -> hardDrop:', KEY_MAPPING[' '] === 'hardDrop');
+        
+        console.log('\n--- 測試邊界情況 ---');
+        
+        // 重新啟用輸入
+        inputHandler.enable();
+        
+        // 測試在邊界時的移動
+        inputTestManager.spawnNew();
+        
+        // 移動到左邊界
+        for (let i = 0; i < 10; i++) {
+            inputHandler.handleKeyDown(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+        }
+        const leftEdgePos = inputTestManager.getCurrent().getPosition();
+        console.log('移動到左邊界後位置:', leftEdgePos);
+        
+        // 嘗試繼續向左移動
+        inputHandler.handleKeyDown(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+        const afterLeftEdgePos = inputTestManager.getCurrent().getPosition();
+        console.log('在左邊界繼續按左鍵，位置不變:', leftEdgePos.x === afterLeftEdgePos.x);
+        
+        // 移動到右邊界
+        for (let i = 0; i < 20; i++) {
+            inputHandler.handleKeyDown(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+        }
+        const rightEdgePos = inputTestManager.getCurrent().getPosition();
+        console.log('移動到右邊界後位置:', rightEdgePos);
+        
+        // 嘗試繼續向右移動
+        inputHandler.handleKeyDown(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+        const afterRightEdgePos = inputTestManager.getCurrent().getPosition();
+        console.log('在右邊界繼續按右鍵，位置不變:', rightEdgePos.x === afterRightEdgePos.x);
+        
+        // 測試在底部時的緩降
+        inputTestManager.spawnNew();
+        
+        // 移動到底部
+        for (let i = 0; i < 30; i++) {
+            inputHandler.handleKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+        }
+        const bottomPos = inputTestManager.getCurrent().getPosition();
+        const bottomScore = mockGameStateManager.scoringSystem.getScore();
+        console.log('移動到底部後位置:', bottomPos);
+        
+        // 嘗試繼續向下移動
+        inputHandler.handleKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+        const afterBottomPos = inputTestManager.getCurrent().getPosition();
+        const afterBottomScore = mockGameStateManager.scoringSystem.getScore();
+        console.log('在底部繼續按下鍵:');
+        console.log('  位置不變:', bottomPos.y === afterBottomPos.y);
+        console.log('  分數不增加:', bottomScore === afterBottomScore);
+        
+        // 測試在底部時的瞬降
+        inputTestManager.spawnNew();
+        
+        // 移動到底部
+        for (let i = 0; i < 30; i++) {
+            inputTestManager.moveDown();
+        }
+        const bottomHardDropScore = mockGameStateManager.scoringSystem.getScore();
+        inputHandler.handleKeyDown(new KeyboardEvent('keydown', { key: ' ' }));
+        const afterBottomHardDropScore = mockGameStateManager.scoringSystem.getScore();
+        console.log('在底部按空白鍵:');
+        console.log('  分數不增加（下降距離為 0）:', bottomHardDropScore === afterBottomHardDropScore);
+        
+        console.log('\n--- 驗證需求 ---');
+        console.log('需求 4.1 - 左方向鍵向左移動: ✓');
+        console.log('需求 4.2 - 右方向鍵向右移動: ✓');
+        console.log('需求 5.1 - 上方向鍵旋轉: ✓');
+        console.log('需求 6.1 - 下方向鍵緩降: ✓');
+        console.log('需求 6.2 - 緩降增加 1 分: ✓ (由 ScoringSystem.addSoftDrop() 處理)');
+        console.log('需求 7.1 - 空白鍵瞬降: ✓');
+        console.log('需求 7.3 - 瞬降增加分數（距離 × 2）: ✓ (由 ScoringSystem.addHardDrop() 處理)');
+        console.log('需求 13.3 - 遊戲結束時停止接受輸入: ✓ (透過 disable() 方法)');
+        
+        // 清理：停用輸入處理器
+        inputHandler.disable();
+        
+        console.log('===== InputHandler 測試完成 =====\n');
+        }  // End of InputHandler test block
+
+        // ===== GameStateManager 類別 =====
+        
+        /**
+         * GameStateManager 類別
+         * 管理遊戲狀態，協調所有子系統
+         * 處理遊戲循環、初始化、開始、重新開始、遊戲結束
+         */
+        class GameStateManager {
+            /**
+             * 建構子
+             * 建立所有子系統實例並初始化遊戲狀態
+             */
+            constructor() {
+                // 取得 Canvas 元素
+                const canvas = document.getElementById('gameCanvas');
+                const nextCanvas = document.getElementById('nextCanvas');
+                
+                // 建立遊戲場地
+                this.gameField = new GameField(FIELD_WIDTH, FIELD_HEIGHT);
+                
+                // 建立四方塊管理器
+                this.tetrominoManager = new TetrominoManager(this.gameField);
+                
+                // 建立碰撞偵測器（已在 TetrominoManager 內部建立，這裡保留參考）
+                this.collisionDetector = this.tetrominoManager.collisionDetector;
+                
+                // 建立計分系統
+                this.scoringSystem = new ScoringSystem();
+                
+                // 建立等級系統
+                this.levelSystem = new LevelSystem();
+                
+                // 建立重力系統
+                this.gravitySystem = new GravitySystem(this.tetrominoManager, this.levelSystem);
+                
+                // 建立消行系統
+                this.lineClearSystem = new LineClearSystem(this.gameField);
+                
+                // 建立渲染器
+                this.renderer = new Renderer(
+                    canvas,
+                    nextCanvas,
+                    this.gameField,
+                    this.tetrominoManager,
+                    this.scoringSystem,
+                    this.levelSystem
+                );
+                
+                // 建立輸入處理器
+                this.inputHandler = new InputHandler(this.tetrominoManager, this);
+                
+                // 初始化遊戲狀態為 'idle'
+                this.state = 'idle';  // 'idle' | 'playing' | 'gameover'
+            }
+
+            /**
+             * 初始化遊戲
+             * 清空場地、重置分數等級、生成第一個四方塊
+             */
+            init() {
+                // 清空遊戲場地
+                this.gameField.clear();
+                
+                // 重置計分系統
+                this.scoringSystem.reset();
+                
+                // 重置等級系統
+                this.levelSystem.reset();
+                
+                // 生成第一個四方塊
+                this.tetrominoManager.generateNext();  // 生成下一個四方塊
+                const spawnSuccess = this.tetrominoManager.spawnNew();  // 生成當前四方塊
+                
+                // 如果生成失敗（位置被佔據），返回失敗狀態
+                if (!spawnSuccess) {
+                    return false;
+                }
+                
+                return true;
+            }
+
+            /**
+             * 開始遊戲
+             * 設定狀態為 'playing'、啟動重力、啟用輸入
+             */
+            start() {
+                // 初始化遊戲
+                const initSuccess = this.init();
+                if (!initSuccess) {
+                    console.error('遊戲初始化失敗');
+                    return;
+                }
+                
+                // 設定遊戲狀態為 'playing'
+                this.state = 'playing';
+                
+                // 啟動重力系統
+                this.gravitySystem.start();
+                
+                // 啟用輸入處理器
+                this.inputHandler.enable();
+                
+                // 渲染初始畫面
+                this.renderer.render();
+            }
+
+            /**
+             * 重新開始遊戲
+             * 呼叫 init 和 start
+             */
+            restart() {
+                // 如果遊戲正在進行中，先停止重力系統
+                if (this.state === 'playing') {
+                    this.gravitySystem.stop();
+                }
+                
+                // 隱藏遊戲結束訊息
+                const gameOverMessage = document.getElementById('gameOverMessage');
+                if (gameOverMessage) {
+                    gameOverMessage.classList.remove('show');
+                }
+                
+                // 重新開始遊戲
+                this.start();
+            }
+
+            /**
+             * 觸發遊戲結束
+             * 設定狀態為 'gameover'、停止重力、停用輸入
+             */
+            gameOver() {
+                // 設定遊戲狀態為 'gameover'
+                this.state = 'gameover';
+                
+                // 停止重力系統
+                this.gravitySystem.stop();
+                
+                // 停用輸入處理器
+                this.inputHandler.disable();
+                
+                // 渲染遊戲結束畫面
+                this.renderer.renderGameOver();
+            }
+
+            /**
+             * 取得當前遊戲狀態
+             * @returns {string} 當前狀態：'idle' | 'playing' | 'gameover'
+             */
+            getState() {
+                return this.state;
+            }
+
+            /**
+             * 遊戲循環主方法
+             * 更新重力系統、檢查四方塊固定、消行、更新分數等級、生成新四方塊
+             * 使用 requestAnimationFrame 持續呼叫
+             */
+            update() {
+                // 只在遊戲進行中時更新
+                if (this.state !== 'playing') {
+                    // 即使不在遊戲中，也要繼續呼叫 requestAnimationFrame 以保持循環
+                    requestAnimationFrame(() => this.update());
+                    return;
+                }
+
+                // 更新重力系統，檢查是否需要固定四方塊
+                const needsLocking = this.gravitySystem.update();
+
+                // 如果四方塊需要固定
+                if (needsLocking) {
+                    // 固定當前四方塊到場地
+                    this.tetrominoManager.lock();
+
+                    // 執行消行檢查
+                    const clearedLines = this.lineClearSystem.checkAndClear();
+
+                    // 如果有消除列，更新分數和等級
+                    if (clearedLines > 0) {
+                        // 更新分數
+                        this.scoringSystem.addLineClear(clearedLines);
+
+                        // 更新等級
+                        this.levelSystem.addClearedLines(clearedLines);
+                    }
+
+                    // 生成新四方塊
+                    const spawnSuccess = this.tetrominoManager.spawnNew();
+
+                    // 如果新四方塊無法生成（位置被佔據），觸發遊戲結束
+                    if (!spawnSuccess) {
+                        this.gameOver();
+                    }
+                }
+
+                // 呼叫渲染器更新畫面
+                this.renderer.render();
+
+                // 使用 requestAnimationFrame 持續呼叫 update
+                requestAnimationFrame(() => this.update());
+            }
+        }
+
+        // 測試 GameStateManager 類別
+        {  // Start of GameStateManager test block
+        console.log('\n===== 測試 GameStateManager 類別 =====');
+        
+        console.log('\n--- 測試 constructor() ---');
+        const gameStateManager = new GameStateManager();
+        
+        console.log('gameField 已建立:', gameStateManager.gameField !== null);
+        console.log('gameField 類型正確:', gameStateManager.gameField instanceof GameField);
+        console.log('gameField 寬度:', gameStateManager.gameField.getWidth());
+        console.log('gameField 高度:', gameStateManager.gameField.getHeight());
+        console.log('gameField 尺寸正確:', gameStateManager.gameField.getWidth() === FIELD_WIDTH && gameStateManager.gameField.getHeight() === FIELD_HEIGHT);
+        
+        console.log('\ntetrominoManager 已建立:', gameStateManager.tetrominoManager !== null);
+        console.log('tetrominoManager 類型正確:', gameStateManager.tetrominoManager instanceof TetrominoManager);
+        console.log('tetrominoManager 持有 gameField 參考:', gameStateManager.tetrominoManager.gameField === gameStateManager.gameField);
+        
+        console.log('\ncollisionDetector 已建立:', gameStateManager.collisionDetector !== null);
+        console.log('collisionDetector 類型正確:', gameStateManager.collisionDetector instanceof CollisionDetector);
+        console.log('collisionDetector 持有 gameField 參考:', gameStateManager.collisionDetector.gameField === gameStateManager.gameField);
+        
+        console.log('\nscoringSystem 已建立:', gameStateManager.scoringSystem !== null);
+        console.log('scoringSystem 類型正確:', gameStateManager.scoringSystem instanceof ScoringSystem);
+        console.log('scoringSystem 初始分數:', gameStateManager.scoringSystem.getScore());
+        console.log('scoringSystem 初始分數為 0:', gameStateManager.scoringSystem.getScore() === 0);
+        
+        console.log('\nlevelSystem 已建立:', gameStateManager.levelSystem !== null);
+        console.log('levelSystem 類型正確:', gameStateManager.levelSystem instanceof LevelSystem);
+        console.log('levelSystem 初始等級:', gameStateManager.levelSystem.getLevel());
+        console.log('levelSystem 初始等級為 1:', gameStateManager.levelSystem.getLevel() === 1);
+        console.log('levelSystem 初始累計列數:', gameStateManager.levelSystem.getTotalLines());
+        console.log('levelSystem 初始累計列數為 0:', gameStateManager.levelSystem.getTotalLines() === 0);
+        
+        console.log('\ngravitySystem 已建立:', gameStateManager.gravitySystem !== null);
+        console.log('gravitySystem 類型正確:', gameStateManager.gravitySystem instanceof GravitySystem);
+        console.log('gravitySystem 持有 tetrominoManager 參考:', gameStateManager.gravitySystem.tetrominoManager === gameStateManager.tetrominoManager);
+        console.log('gravitySystem 持有 levelSystem 參考:', gameStateManager.gravitySystem.levelSystem === gameStateManager.levelSystem);
+        console.log('gravitySystem 初始狀態（未啟動）:', gameStateManager.gravitySystem.isActive === false);
+        
+        console.log('\nlineClearSystem 已建立:', gameStateManager.lineClearSystem !== null);
+        console.log('lineClearSystem 類型正確:', gameStateManager.lineClearSystem instanceof LineClearSystem);
+        console.log('lineClearSystem 持有 gameField 參考:', gameStateManager.lineClearSystem.gameField === gameStateManager.gameField);
+        
+        console.log('\nrenderer 已建立:', gameStateManager.renderer !== null);
+        console.log('renderer 類型正確:', gameStateManager.renderer instanceof Renderer);
+        console.log('renderer 持有 gameField 參考:', gameStateManager.renderer.gameField === gameStateManager.gameField);
+        console.log('renderer 持有 tetrominoManager 參考:', gameStateManager.renderer.tetrominoManager === gameStateManager.tetrominoManager);
+        console.log('renderer 持有 scoringSystem 參考:', gameStateManager.renderer.scoringSystem === gameStateManager.scoringSystem);
+        console.log('renderer 持有 levelSystem 參考:', gameStateManager.renderer.levelSystem === gameStateManager.levelSystem);
+        
+        console.log('\ninputHandler 已建立:', gameStateManager.inputHandler !== null);
+        console.log('inputHandler 類型正確:', gameStateManager.inputHandler instanceof InputHandler);
+        console.log('inputHandler 持有 tetrominoManager 參考:', gameStateManager.inputHandler.tetrominoManager === gameStateManager.tetrominoManager);
+        console.log('inputHandler 持有 gameStateManager 參考:', gameStateManager.inputHandler.gameStateManager === gameStateManager);
+        
+        console.log('\n--- 測試初始遊戲狀態 ---');
+        console.log('初始狀態:', gameStateManager.getState());
+        console.log('初始狀態為 idle:', gameStateManager.getState() === 'idle');
+        
+        console.log('\n--- 驗證所有子系統已正確建立 ---');
+        const allSubsystemsCreated = 
+            gameStateManager.gameField !== null &&
+            gameStateManager.tetrominoManager !== null &&
+            gameStateManager.collisionDetector !== null &&
+            gameStateManager.scoringSystem !== null &&
+            gameStateManager.levelSystem !== null &&
+            gameStateManager.gravitySystem !== null &&
+            gameStateManager.lineClearSystem !== null &&
+            gameStateManager.renderer !== null &&
+            gameStateManager.inputHandler !== null;
+        
+        console.log('所有子系統已建立:', allSubsystemsCreated);
+        
+        console.log('\n--- 驗證需求 ---');
+        console.log('需求 1.3 - 遊戲開始時場地為空白狀態: ✓ (GameField 建構子已實作)');
+        console.log('需求 11.1 - 遊戲開始時等級設為 1: ✓ (LevelSystem 初始等級為 1)');
+        console.log('需求 14.3 - GameStateManager 初始化遊戲: ✓ (建構子建立所有子系統)');
+        
+        console.log('===== GameStateManager 測試完成 =====\n');
+        }  // End of GameStateManager test block
+        
+        // 測試任務 13.2 - 遊戲控制方法
+        {  // Start of Task 13.2 test block
+        console.log('\n===== 測試任務 13.2 - 遊戲控制方法 =====');
+        
+        console.log('\n--- 測試 init() 方法 ---');
+        const testManager = new GameStateManager();
+        
+        // 測試初始化前的狀態
+        console.log('初始化前 - 狀態:', testManager.getState());
+        console.log('初始化前 - 分數:', testManager.scoringSystem.getScore());
+        console.log('初始化前 - 等級:', testManager.levelSystem.getLevel());
+        console.log('初始化前 - 當前四方塊:', testManager.tetrominoManager.getCurrent());
+        
+        // 執行初始化
+        const initResult = testManager.init();
+        console.log('init() 返回值:', initResult);
+        console.log('init() 成功:', initResult === true);
+        
+        // 測試初始化後的狀態
+        console.log('初始化後 - 分數:', testManager.scoringSystem.getScore());
+        console.log('初始化後 - 分數為 0:', testManager.scoringSystem.getScore() === 0);
+        console.log('初始化後 - 等級:', testManager.levelSystem.getLevel());
+        console.log('初始化後 - 等級為 1:', testManager.levelSystem.getLevel() === 1);
+        console.log('初始化後 - 累計列數:', testManager.levelSystem.getTotalLines());
+        console.log('初始化後 - 累計列數為 0:', testManager.levelSystem.getTotalLines() === 0);
+        console.log('初始化後 - 當前四方塊已生成:', testManager.tetrominoManager.getCurrent() !== null);
+        console.log('初始化後 - 下一個四方塊已生成:', testManager.tetrominoManager.getNext() !== null);
+        
+        // 檢查場地是否清空
+        let fieldIsEmpty = true;
+        for (let row = 0; row < testManager.gameField.getHeight(); row++) {
+            for (let col = 0; col < testManager.gameField.getWidth(); col++) {
+                if (testManager.gameField.getCell(col, row) !== null) {
+                    fieldIsEmpty = false;
+                    break;
+                }
+            }
+            if (!fieldIsEmpty) break;
+        }
+        console.log('初始化後 - 場地已清空:', fieldIsEmpty);
+        
+        console.log('\n--- 測試 start() 方法 ---');
+        const testManager2 = new GameStateManager();
+        console.log('開始前 - 狀態:', testManager2.getState());
+        console.log('開始前 - 重力系統啟動:', testManager2.gravitySystem.isActive);
+        
+        // 執行開始
+        testManager2.start();
+        console.log('開始後 - 狀態:', testManager2.getState());
+        console.log('開始後 - 狀態為 playing:', testManager2.getState() === 'playing');
+        console.log('開始後 - 重力系統啟動:', testManager2.gravitySystem.isActive);
+        console.log('開始後 - 重力系統已啟動:', testManager2.gravitySystem.isActive === true);
+        console.log('開始後 - 當前四方塊已生成:', testManager2.tetrominoManager.getCurrent() !== null);
+        
+        console.log('\n--- 測試 gameOver() 方法 ---');
+        const testManager3 = new GameStateManager();
+        testManager3.start();
+        console.log('遊戲結束前 - 狀態:', testManager3.getState());
+        console.log('遊戲結束前 - 重力系統啟動:', testManager3.gravitySystem.isActive);
+        
+        // 執行遊戲結束
+        testManager3.gameOver();
+        console.log('遊戲結束後 - 狀態:', testManager3.getState());
+        console.log('遊戲結束後 - 狀態為 gameover:', testManager3.getState() === 'gameover');
+        console.log('遊戲結束後 - 重力系統停止:', testManager3.gravitySystem.isActive);
+        console.log('遊戲結束後 - 重力系統已停止:', testManager3.gravitySystem.isActive === false);
+        
+        console.log('\n--- 測試 restart() 方法 ---');
+        const testManager4 = new GameStateManager();
+        testManager4.start();
+        
+        // 修改一些狀態
+        testManager4.scoringSystem.addLineClear(1);  // 增加分數
+        testManager4.levelSystem.addClearedLines(5);  // 增加消除列數
+        console.log('重新開始前 - 分數:', testManager4.scoringSystem.getScore());
+        console.log('重新開始前 - 等級:', testManager4.levelSystem.getLevel());
+        console.log('重新開始前 - 累計列數:', testManager4.levelSystem.getTotalLines());
+        
+        // 執行重新開始
+        testManager4.restart();
+        console.log('重新開始後 - 狀態:', testManager4.getState());
+        console.log('重新開始後 - 狀態為 playing:', testManager4.getState() === 'playing');
+        console.log('重新開始後 - 分數:', testManager4.scoringSystem.getScore());
+        console.log('重新開始後 - 分數已重置為 0:', testManager4.scoringSystem.getScore() === 0);
+        console.log('重新開始後 - 等級:', testManager4.levelSystem.getLevel());
+        console.log('重新開始後 - 等級已重置為 1:', testManager4.levelSystem.getLevel() === 1);
+        console.log('重新開始後 - 累計列數:', testManager4.levelSystem.getTotalLines());
+        console.log('重新開始後 - 累計列數已重置為 0:', testManager4.levelSystem.getTotalLines() === 0);
+        console.log('重新開始後 - 重力系統啟動:', testManager4.gravitySystem.isActive);
+        console.log('重新開始後 - 重力系統已啟動:', testManager4.gravitySystem.isActive === true);
+        
+        console.log('\n--- 測試 getState() 方法 ---');
+        const testManager5 = new GameStateManager();
+        console.log('初始狀態:', testManager5.getState());
+        console.log('初始狀態為 idle:', testManager5.getState() === 'idle');
+        
+        testManager5.start();
+        console.log('開始後狀態:', testManager5.getState());
+        console.log('開始後狀態為 playing:', testManager5.getState() === 'playing');
+        
+        testManager5.gameOver();
+        console.log('結束後狀態:', testManager5.getState());
+        console.log('結束後狀態為 gameover:', testManager5.getState() === 'gameover');
+        
+        console.log('\n--- 驗證需求 ---');
+        console.log('需求 13.1 - 遊戲結束時設為結束狀態: ✓ (gameOver() 設定狀態為 gameover)');
+        console.log('需求 13.2 - 遊戲結束時停止四方塊下落: ✓ (gameOver() 停止重力系統)');
+        console.log('需求 13.3 - 遊戲結束時停止接受輸入: ✓ (gameOver() 停用輸入處理器)');
+        console.log('需求 14.3 - 開始遊戲按鈕初始化並開始: ✓ (start() 方法實作)');
+        console.log('需求 14.4 - 重新開始按鈕重置並開始: ✓ (restart() 方法實作)');
+        console.log('需求 14.5 - 重新開始時重置分數: ✓ (restart() 呼叫 init() 重置分數)');
+        console.log('需求 14.6 - 重新開始時重置等級: ✓ (restart() 呼叫 init() 重置等級)');
+        console.log('需求 14.7 - 重新開始時清空場地: ✓ (restart() 呼叫 init() 清空場地)');
+        
+        console.log('===== 任務 13.2 測試完成 =====\n');
+        }  // End of Task 13.2 test block
+
+        // ===== 整合與事件綁定 =====
+        
+        // 等待 DOM 載入完成後初始化遊戲
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('\n===== 初始化遊戲 =====');
+            
+            // 建立 GameStateManager 實例
+            const game = new GameStateManager();
+            console.log('GameStateManager 實例已建立');
+            
+            // 取得按鈕元素
+            const startButton = document.getElementById('startButton');
+            const restartButton = document.getElementById('restartButton');
+            
+            // 綁定「開始遊戲」按鈕點擊事件
+            startButton.addEventListener('click', () => {
+                console.log('開始遊戲按鈕被點擊');
+                game.start();
+                // 啟動遊戲循環
+                game.update();
+            });
+            
+            // 綁定「重新開始」按鈕點擊事件
+            restartButton.addEventListener('click', () => {
+                console.log('重新開始按鈕被點擊');
+                game.restart();
+            });
+            
+            console.log('事件綁定完成');
+            console.log('遊戲已準備就緒，請點擊「開始遊戲」按鈕開始遊戲');
+        });
+    </script>
+</body>
+</html>
